@@ -145,8 +145,8 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
     </details>
     <details><summary>Body weight and extra cardio</summary>
       <p>Weigh in once a week on Monday (there's a box at the top of each Monday) or on the Body tab. The Body tab shows your trend from your last 4 weigh-ins, your goal range as a shaded band, and about when you'll reach it at your current pace.</p>
-      <p>The target is losing 0.5% to 1% of body weight per week. Below that, the app suggests adding 10 minutes of incline walking on your 2 non-HIIT days (up to 20). Faster than that, it suggests cutting the extra cardio or eating a little more. After a change it waits 3 weeks before suggesting another.</p>
-      <p>Nothing changes until you tap Accept. Your lifting never changes based on body weight; keeping the weights heavy is what protects muscle while you lose fat. If your lifts stall for 2 to 3 weeks in a row, set extra cardio back to None.</p>
+      <p>The target is losing 0.5% to 1% of body weight per week. Each weigh-in sets the next week's extra cardio automatically. Below the target, it adds 10 minutes of incline walking on your 2 non-HIIT days (up to 20). Faster than the target, it cuts 10 minutes, or suggests eating a little more if there's no extra cardio to cut. After a change it waits 3 weeks before changing again. The amount shows on those days, on each Monday, and next to each week on the Body tab.</p>
+      <p>The app decides between none, 10 and 20 minutes on its own; there is nothing to set. Your lifting never changes based on body weight; keeping the weights heavy is what protects muscle while you lose fat. </p>
     </details>
     <details><summary>Double progression (dumbbell lifts)</summary>
       <p>Add reps first, then weight. Dumbbells usually jump 5 lb at a time, which is a big jump on lighter lifts (20 to 25 lb is 25%).</p>
@@ -219,7 +219,46 @@ const pct = () => { const v = +(logs["cfg|pct"] || {}).w; return v >= 30 && v <=
 const dayItems = (w, d) => { const a = (isHiit(w, d) ? H : P).weeks[w - 1][d].items, x = extraItem(w, d); return x ? [...a, x] : a; };
 const isOpener = it => it.block === "Strength opener";
 const XNAME = "Extra Incline Walk";
-const extraMin = w => +(logs[`xc|${w}`] || {}).w || 0;
+let planCache = {sig: null};
+function trendOf(l4){
+  const mx = l4.reduce((a, p) => a + p[0], 0) / l4.length, my = l4.reduce((a, p) => a + p[1], 0) / l4.length;
+  const rate = -l4.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / l4.reduce((a, p) => a + (p[0] - mx) ** 2, 0);
+  const l3 = l4.slice(-3), avg = l3.reduce((a, p) => a + p[1], 0) / l3.length;
+  return {rate, pct: rate / avg * 100};
+}
+function trendTxt(t){
+  if (Math.abs(t.rate) < 0.05) return "Weight is flat";
+  return t.rate < 0 ? `Gaining ${fmt(-t.rate)} lb/week` : `Losing ${fmt(t.rate)} lb/week (${t.pct.toFixed(2)}%)`;
+}
+function cardioPlan(){
+  let sig = ""; for (const k in logs) if (k.startsWith("bw|")) sig += k + "=" + (logs[k] || {}).w + ";";
+  if (planCache.sig === sig) return planCache;
+  const n = P.weeks.length, min = [0], why = [""], pts = [];
+  let last = 0, lastChange = 0;
+  for (let w = 1; w <= n; w++) {
+    const prev = +(logs[`bw|${w - 1}`] || {}).w;
+    if (prev > 0) pts.push([w - 1, prev]);
+    let m = last, y = last ? `Holding at ${last} min.` : "";
+    const l4 = pts.slice(-4);
+    if (prev > 0 && l4.length >= 3) {
+      const t = trendOf(l4), tt = `${trendTxt(t)} through Week ${w - 1}`, ok = !lastChange || w - lastChange >= 3;
+      const wait = `Holding at ${last ? last + " min" : "none"} until Week ${lastChange + 3} so the last change can show up in the trend.`;
+      if (t.pct < 0.5) {
+        if (last >= 20) y = `${tt}, below the 0.5% to 1% target. Extra cardio is already at the 20 min cap, so look at the eating side.`;
+        else if (!ok) y = `${tt}, below the 0.5% to 1% target. ${wait}`;
+        else { m = last + 10; y = `${tt}, below the 0.5% to 1% target, so extra cardio goes up to ${m} min.`; }
+      } else if (t.pct > 1) {
+        if (!last) y = `${tt}, faster than the 1% target. Losing this fast can cost muscle and strength; consider eating a little more.`;
+        else if (!ok) y = `${tt}, faster than the 1% target. ${wait}`;
+        else { m = last - 10; y = `${tt}, faster than the 1% target, so extra cardio drops to ${m ? m + " min" : "none"}.`; }
+      } else y = `${tt}, in the 0.5% to 1% target range. No change.`;
+    } else if (!last) y = pts.length < 3 ? "Needs 3 weekly weigh-ins before it adjusts." : `No weigh-in for Week ${w - 1}, so no change.`;
+    if (m !== last) lastChange = w;
+    min[w] = m; why[w] = y; last = m;
+  }
+  return planCache = {sig, min, why};
+}
+const extraMin = w => cardioPlan().min[w] || 0;
 function extraItem(w, d){ const m = extraMin(w); return m && !P.weeks[w - 1][d].items.some(x => x.kind === "hiit") ? {name: XNAME, kind: "extra", target: `${m} min`} : null; }
 function bwStats(){
   const pts = [];
@@ -236,21 +275,8 @@ function bwStats(){
   return st;
 }
 function bwSuggest(st){
-  const nw = st.latest ? Math.min(st.latest[0] + 1, P.weeks.length) : 1, cur = extraMin(nw);
-  if (st.pctRate == null) return {nw, cur, act: null, txt: "Log at least 3 weekly weigh-ins to get a cardio suggestion."};
-  let k = nw; while (k > 1 && extraMin(k - 1) === extraMin(k)) k--;
-  const changed = k > 1 && nw - k < 3;
-  const rate = st.rate < 0 ? `Gaining ${fmt(-st.rate)} lb/week` : `Losing ${fmt(st.rate)} lb/week (${st.pctRate.toFixed(2)}% of body weight)`;
-  if (st.pctRate < 0.5) {
-    if (changed) return {nw, cur, act: null, txt: `${rate}, below the 0.5% to 1% target. Extra cardio changed in Week ${k}; give it 3 weeks to show in the trend before changing again.`};
-    if (cur >= 20) return {nw, cur, act: null, txt: `${rate}, below the 0.5% to 1% target. Extra cardio is already at 20 min, so look at the eating side (portions and consistency on the meal plan) before adding more.`};
-    return {nw, cur, act: cur + 10, txt: `${rate}, below the 0.5% to 1% target. Suggestion: ${cur ? "raise" : "add"} extra incline walking to ${cur + 10} min on your 2 non-HIIT days starting Week ${nw}.`};
-  }
-  if (st.pctRate > 1) {
-    if (cur > 0 && !changed) return {nw, cur, act: cur - 10, txt: `${rate}, faster than the 1% target. Suggestion: cut extra cardio to ${cur - 10 ? cur - 10 + " min" : "none"} starting Week ${nw}.`};
-    return {nw, cur, act: null, txt: `${rate}, faster than the 1% target. Losing this fast can cost muscle and strength; consider eating a little more.`};
-  }
-  return {nw, cur, act: null, txt: `${rate}. That's in the 0.5% to 1% target range. No change needed.`};
+  const nw = Math.min(P.weeks.length, Math.max(1, st.latest ? st.latest[0] + 1 : calWeek())), pl = cardioPlan();
+  return {nw, cur: pl.min[nw] || 0, txt: pl.why[nw]};
 }
 function bwSummary(){
   const st = bwStats(), sg = bwSuggest(st), E = viewEnd();
@@ -279,15 +305,13 @@ function bwSummary(){
     <dt>Trend</dt><dd>${st.rate == null ? "Needs 3 weigh-ins" : st.rate < 0 ? `+${fmt(-st.rate)} lb/week` : `-${fmt(st.rate)} lb/week (${st.pctRate.toFixed(2)}%)`}</dd>
     ${goal}</dl></div>`;
   }
-  h += `<article class="ex sug"><h3 style="margin:0 0 6px">Cardio suggestion</h3><div>${esc(sg.txt)}</div>
-  ${sg.act != null ? `<div class="btns" style="margin-top:10px"><button class="btn pri" data-xc="${sg.act}" data-xf="${sg.nw}">Accept: ${sg.act ? sg.act + " min" : "no extra cardio"} from Week ${sg.nw}</button></div>` : ""}
-  <small style="display:block;margin-top:10px;color:var(--mute)">Extra incline walk from Week ${sg.nw} on, set by hand:</small>
-  <div class="xrow">${[0, 10, 20].map(m => `<button data-xc="${m}" data-xf="${sg.nw}" aria-pressed="${sg.cur === m}">${m ? m + " min" : "None"}</button>`).join("")}</div></article>`;
+  h += `<article class="ex sug"><h3 style="margin:0 0 6px">Cardio plan, Week ${sg.nw}: ${sg.cur ? sg.cur + " min extra" : "no extra"}</h3><div>${esc(sg.txt)}</div>
+  <small style="display:block;margin-top:8px;color:var(--mute)">Set automatically from your weigh-ins: 10 or 20 min, decided by the app. It shows on your 2 non-HIIT days and next to each week below.</small></article>`;
   return h;
 }
 function renderBody(){
   let h = `<div class="head"><div><p>Weekly</p><h2>Body Weight</h2></div></div>
-  <div class="note">Weigh in once a week: same morning, after the bathroom, before eating. The trend uses your last 4 weigh-ins and aims for 0.5% to 1% of body weight lost per week. Your lifting stays the same; only extra cardio changes, and only when you accept it.</div>
+  <div class="note">Weigh in once a week: same morning, after the bathroom, before eating. The trend uses your last 4 weigh-ins and aims for 0.5% to 1% of body weight lost per week. Your lifting stays the same; only extra incline walking changes, and the app sets it for you each week.</div>
   <div id="bwsum">${bwSummary()}</div>
   <h3 class="grp">Goal range</h3>
   <article class="ex srow" data-k="cfg|ghi"><div><h3>Top of range</h3><small>First target</small></div><input data-f="w" inputmode="decimal" placeholder="lb" value="${esc((logs["cfg|ghi"] || {}).w)}" aria-label="Goal range top"></article>
@@ -383,7 +407,7 @@ function renderDay(){
   const w = ui.week, d = P.weeks[w - 1][ui.day];
   let h = `<div class="head"><div><p>${d.day[0] + d.day.slice(1).toLowerCase()}, ${dstr(weekDate(w, ui.day))} | Week ${w}, Block ${Math.ceil(w / BL)}</p><h2>${esc(NICE(d.workout))}</h2></div></div>`;
   const hm = isHiit(w, ui.day);
-  if (ui.day === 0) h += `<article class="ex srow" data-k="bw|${w}"><div><h3>Week ${w} weigh-in</h3><small>${dstr(weekDate(w))}, morning, before eating. Trend is on the Body tab.</small></div><input data-f="w" inputmode="decimal" placeholder="lb" value="${esc((logs[`bw|${w}`] || {}).w)}" aria-label="Week ${w} body weight"></article>`;
+  if (ui.day === 0) h += `<article class="ex srow" data-k="bw|${w}"><div><h3>Week ${w} weigh-in</h3><small>${dstr(weekDate(w))}, morning, before eating.${extraMin(w) ? ` Extra cardio this week: ${extraMin(w)} min on your 2 non-HIIT days.` : ""}</small></div><input data-f="w" inputmode="decimal" placeholder="lb" value="${esc((logs[`bw|${w}`] || {}).w)}" aria-label="Week ${w} body weight"></article>`;
   h += `<div class="mode" role="group" aria-label="Workout version"><button data-mode="full" aria-pressed="${!hm}">Lift (main)<small>about 60 min</small></button><button data-mode="hiit" aria-pressed="${hm}">HIIT (quick)<small>about ${HMIN[d.workout]} min, ${pct()}% weights</small></button></div>`;
   if (!hm) {
     if (d.note) h += `<div class="note">${esc(d.note)}</div>`;
@@ -399,7 +423,7 @@ function renderDay(){
   }
   const xi = extraItem(w, ui.day);
   if (xi) { const k = `${w}|${ui.day}|EXTRA`, e = logs[k] || {}, dn = e.d ? " done" : "";
-    h += `<article class="ex${dn}" data-k="${k}"><div class="r1"><h3>${XNAME}</h3><span>${xi.target}</span></div><div class="hint" style="margin:0 0 8px">Added from your body weight trend. Brisk pace on a steep incline, after lifting.</div>
+    h += `<article class="ex${dn}" data-k="${k}"><div class="r1"><h3>${XNAME}</h3><span>${xi.target}</span></div><div class="hint" style="margin:0 0 8px">Added automatically from your body weight trend. Brisk pace on a steep incline, after lifting.</div>
     <div class="simple"><input class="txt" data-f="n" placeholder="Notes" value="${esc(e.n)}" aria-label="Notes"><button class="chk" data-f="d" aria-label="Mark done">✓</button></div></article>`; }
   $("day").innerHTML = h;
 }
@@ -513,11 +537,6 @@ document.addEventListener("click", ev => {
   if (b.dataset.blk) { ui.blk = +b.dataset.blk; ui.week = (ui.blk - 1) * BL + 1; queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
   if (b.dataset.w) { ui.week = +b.dataset.w; if (ui.week > 0) ui.blk = Math.ceil(ui.week / BL); resetTimer(); queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
   if (b.dataset.d) { ui.day = +b.dataset.d; resetTimer(); queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
-  if (b.dataset.xc != null) {
-    const m = +b.dataset.xc, f = +b.dataset.xf;
-    for (let k = f; k <= P.weeks.length; k++) { if (m) logs[`xc|${k}`] = {w: m}; else delete logs[`xc|${k}`]; }
-    queueSave(); renderDay(); return;
-  }
   if (b.dataset.mode) {
     const k = `${ui.week}|${ui.day}|MODE`;
     if (b.dataset.mode === "hiit") logs[k] = {m: "hiit"}; else delete logs[k];
@@ -733,7 +752,6 @@ function buildCsv(){
   WU.forEach((d, di) => d.items.forEach(it => { const e = logs[wuKey(di, it.name)]; if (e && Object.keys(e).length) rows.push(["Warm-up", SHORT[d.day], d.label, it.name, it.target, "", e.w || "", e.r || "", e.d ? "Yes" : "", e.n || "", "", "Warm-up"]); }));
   for (let w = 1, E = exportEnd(); w <= E; w++) {
     if ((logs[`bw|${w}`] || {}).w) rows.push(["Body weight", "", "", `Week ${w}`, "", "", logs[`bw|${w}`].w, "", "", "", "", ""]);
-    if (extraMin(w)) rows.push(["Extra cardio", "", "", `Week ${w}`, "", "", extraMin(w), "", "", "", "", ""]);
   }
   if ((logs["cfg|ghi"] || {}).w) rows.push(["Setting", "", "", "Goal weight (top)", "", "", logs["cfg|ghi"].w, "", "", "", "", ""]);
   if ((logs["cfg|glo"] || {}).w) rows.push(["Setting", "", "", "Goal weight (bottom)", "", "", logs["cfg|glo"].w, "", "", "", "", ""]);
