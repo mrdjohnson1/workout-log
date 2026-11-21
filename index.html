@@ -253,7 +253,8 @@ function mealSelect(date, slot, label){
   if (!mealOpts) mealOpts = MPLANS.map(p => `<optgroup label="${p}">` + ["Pre-workout", "Breakfast", "Any meal", "Lunch or dinner", "Coffee", "Dessert"].flatMap(t => MEALS.filter(m => m.plan === p && m.type === t))
     .map(m => `<option value="${m.id}">${esc(m.name)}${m.type === "Pre-workout" ? " (snack)" : m.type === "Breakfast" ? " (breakfast)" : ""}</option>`).join("") + "</optgroup>").join("");
   if (!preOpts) preOpts = [...new Set(PREW.map(m => m.grp))].map(g => `<optgroup label="${g}">` + PREW.filter(m => m.grp === g).map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join("") + "</optgroup>").join("");
-  const cur = (logs[mealKey(date, slot)] || {}).m || "", O = slot === "pre" ? preOpts : mealOpts;
+  const typeOpts = t => MEALS.filter(m => m.type === t).map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join("");
+  const cur = (logs[mealKey(date, slot)] || {}).m || "", O = slot === "pre" ? preOpts : slot === "cf" ? typeOpts("Coffee") : slot === "ds" ? typeOpts("Dessert") : mealOpts;
   return `<select data-meal="${mealKey(date, slot)}" aria-label="${label}"><option value="">Not logged</option>${cur ? O.replace(`value="${cur}"`, `value="${cur}" selected`) : O}</select>`;
 }
 const mnum = v => v == null ? "n/a" : fmt(v);
@@ -286,7 +287,7 @@ function mealTotals(date){
 function mealSection(t){
   const date = isoD(t);
   return `<h3 class="grp" id="meals">Meals, ${dstr(t)}</h3>` + MSLOTS.map(([s, label]) => { const m = MBY[(logs[mealKey(date, s)] || {}).m];
-    return `<article class="ex meal"><div class="r1"><h3>${label}</h3></div>${mealSelect(date, s, label)}<div class="hint" data-ml="${mealKey(date, s)}">${m ? `${esc(m.plan)}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${esc(m.note)}` : ""}${m.serving ? `<br><b>1 serving:</b> ${esc(m.serving)}` : ""}` : s === "pre" ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : "Any meal from the 40-40-20 plans."}</div></article>`; }).join("")
+    return `<article class="ex meal"><div class="r1"><h3>${label}</h3></div>${mealSelect(date, s, label)}<div class="hint" data-ml="${mealKey(date, s)}">${m ? `${esc(m.plan)}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${esc(m.note)}` : ""}${m.serving ? `<br><b>1 serving:</b> ${esc(m.serving)}` : ""}` : s === "pre" ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : s === "cf" ? "Coffee from the plan's Coffee and Dessert list." : s === "ds" ? "Dessert from the plan's Coffee and Dessert list." : "Any meal from the 40-40-20 plans."}</div></article>`; }).join("")
     + snackSection(date) + `<div id="mtot" data-date="${date}">${mealTotals(date)}</div>`;
 }
 function weekendTabs(wk){
@@ -880,7 +881,7 @@ document.addEventListener("change", ev => {
   const k = ev.target.dataset && ev.target.dataset.meal; if (!k) return;
   if (ev.target.value) logs[k] = {m: ev.target.value}; else delete logs[k];
   const m = MBY[ev.target.value], hint = document.querySelector(`[data-ml="${k}"]`);
-  if (hint) hint.innerHTML = m ? `${esc(m.plan)}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${esc(m.note)}` : ""}${m.serving ? `<br><b>1 serving:</b> ${esc(m.serving)}` : ""}` : k.endsWith("|pre") ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : "Any meal from the 40-40-20 plans.";
+  if (hint) hint.innerHTML = m ? `${esc(m.plan)}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${esc(m.note)}` : ""}${m.serving ? `<br><b>1 serving:</b> ${esc(m.serving)}` : ""}` : k.endsWith("|pre") ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : k.endsWith("|cf") ? "Coffee from the plan's Coffee and Dessert list." : k.endsWith("|ds") ? "Dessert from the plan's Coffee and Dessert list." : "Any meal from the 40-40-20 plans.";
   const mt = $("mtot"); if (mt) mt.innerHTML = mealTotals(mt.dataset.date);
   queueSave(); renderNav();
 });
