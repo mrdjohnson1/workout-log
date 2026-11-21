@@ -149,6 +149,10 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>Coffee and dessert come from the plan's Coffee and Dessert section: flavored black coffee and Publix chocolate chip cookie portions. They fit inside 2,100 calories by trimming each meal, so when you log them the app takes about a third of their calories off each logged meal (about 130 for a 400-calorie night, 85 for a 250-calorie night). Uncheck "Meals trimmed" on a day you didn't trim.</p>
       <p>The day total compares calories, protein, carbs, fat and fiber with the plan's targets: 2,100 calories, 210 g protein, 210 g carbs, 48 g fat and 35 g+ fiber. A pre-workout snack adds its calories and carbs on top, as the plan does on training days. Numbers come from the plans; values marked ~ are estimated from the plan's protein, carb and fat grams.</p>
     </details>
+    <details><summary>Smart Snacks</summary>
+      <p>Below the meals on each day is a Smart Snacks section with only the plan's Smart Snacks list: nearly free vegetables and broth, protein snacks, fruit and the best combos. Add as many as you eat; tap &times; to remove one.</p>
+      <p>Snacks count toward your 2,100 calories. The plan says vegetables and broth are nearly free, and anything over about 100 calories should come out of that night's cookies or a slightly smaller meal. Values marked ~ are the middle of a range the plan gives.</p>
+    </details>
     <details><summary>Warm-up week (Nov 23 to 27)</summary>
       <p>The week before Week 1 is a warm-up: tap Warm-up in the week row. It has the same workouts on the same days as Week 1, with 2 easy sets per exercise and light weights.</p>
       <p>Thursday is Thanksgiving and is a rest day. Friday is a shorter Shoulders + Arms session. Monday and Friday finish with 15 minutes of moderate elliptical instead of the intervals.</p>
@@ -250,7 +254,7 @@ function dayTrim(date){
   return {per, n, total: per * n, on: per > 0 && !(logs[mealKey(date, "trim")] || {}).off};
 }
 function mealTotals(date){
-  const picked = MSLOTS.map(([s]) => MBY[(logs[mealKey(date, s)] || {}).m]).filter(Boolean);
+  const picked = [...MSLOTS.map(([s]) => MBY[(logs[mealKey(date, s)] || {}).m]).filter(Boolean), ...snList(date).map(id => SBY[id])];
   if (!picked.length) return `<div class="mtot"><small>Pick your meals to see the day's totals against the plan's targets.</small></div>`;
   const sum = k => picked.reduce((a, m) => a + (m[k] || 0), 0), snack = MBY[(logs[mealKey(date, "pre")] || {}).m];
   const tr = dayTrim(date), calSum = sum("cal") - (tr.on ? tr.total : 0);
@@ -259,9 +263,11 @@ function mealTotals(date){
     return `<div class="mr"><span>${n}</span><div class="mb"><i class="${over ? "over" : ""}" style="width:${pc.toFixed(0)}%"></i></div><span>${fmt(v)}${u} / ${n === "Fiber" ? t + u + "+" : fmt(t) + u}</span></div>`; }).join("");
   if (tr.per > 0) h += `<label style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" data-trim="${mealKey(date, "trim")}" ${tr.on ? "checked" : ""} style="width:22px;height:22px"> Meals trimmed about ${tr.per} cal each to fit coffee and dessert${tr.n ? ` (${tr.total} cal off the total)` : ""}</label>`;
   const notes = [];
+  if (snList(date).length) notes.push("Smart snacks count toward 2,100 (calories and the protein the plan lists).");
   if (tr.per > 0) notes.push(`Coffee and dessert fit inside 2,100 when you trim about ${tr.per} calories from each meal, from carbs and fat, using the plan's trim table. Carb and fat totals don't include the trim.`);
   if (picked.some(m => m.plan === "Coffee and Dessert" && m.type === "Dessert")) notes.push("The plan doesn't list protein or fiber for the cookies.");
-  if (picked.some(m => m.est)) notes.push("~ calories estimated from the plan's protein, carb and fat numbers.");
+  if (snList(date).some(id => SBY[id].est)) notes.push("~ snack values are the middle of a range the plan gives.");
+  if (picked.some(m => m.est && !SBY[m.id])) notes.push("~ calories estimated from the plan's protein, carb and fat numbers.");
   if (snack) notes.push("The plan lists only carbs and fat for snacks, so snack protein and fiber aren't counted. Snack calories and carbs are added to the targets, as the plan does on training days.");
   return h + (notes.length ? `<small style="display:block;margin-top:6px;color:var(--mute)">${notes.join(" ")}</small>` : "") + `</div>`;
 }
@@ -269,7 +275,7 @@ function mealSection(t){
   const date = isoD(t);
   return `<h3 class="grp" id="meals">Meals, ${dstr(t)}</h3>` + MSLOTS.map(([s, label]) => { const m = MBY[(logs[mealKey(date, s)] || {}).m];
     return `<article class="ex meal"><div class="r1"><h3>${label}</h3></div>${mealSelect(date, s, label)}<div class="hint" data-ml="${mealKey(date, s)}">${m ? `${esc(m.plan)} plan. ${mealLine(m)}` : "Any meal from the 40-40-20 plans."}</div></article>`; }).join("")
-    + `<div id="mtot" data-date="${date}">${mealTotals(date)}</div>`;
+    + snackSection(date) + `<div id="mtot" data-date="${date}">${mealTotals(date)}</div>`;
 }
 function weekendTabs(wk){
   return [5, 6].map(i => { const date = isoD(weekDate(wk, i)), n = ["bf", "lu", "di"].filter(s => (logs[mealKey(date, s)] || {}).m).length, full = n === 3;
@@ -284,6 +290,18 @@ const isAssist = n => /^(C\d\. )?Assisted (Pull|Chin|Dips)/.test(n);
 const isSmith = n => /Smith bar/.test(n);
 const SMITH_HINT = "Lower the Smith bar one notch when you hit the top of the reps on every set. Log the notch in Notes.";
 function bwAt(w){ for (let k = Math.min(w, NW); k >= 1; k--) { const v = +(logs[`bw|${k}`] || {}).w; if (v > 0) return v; } return 0; }
+const SNACKS = [{"id":"sn-cuke","cat":"Nearly free","name":"Cucumber slices","portion":"1 cup","cal":15,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-celery","cat":"Nearly free","name":"Celery sticks","portion":"2 stalks","cal":15,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-tom","cat":"Nearly free","name":"Cherry tomatoes","portion":"1 cup","cal":25,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-pep","cat":"Nearly free","name":"Bell pepper strips","portion":"1 cup","cal":30,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-broc","cat":"Nearly free","name":"Raw broccoli or cauliflower","portion":"1 cup","cal":28,"p":null,"c":null,"f":null,"fib":null,"est":true},{"id":"sn-snap","cat":"Nearly free","name":"Sugar snap peas","portion":"1 cup","cal":35,"p":null,"c":null,"f":null,"fib":null,"est":true},{"id":"sn-carrot","cat":"Nearly free","name":"Baby carrots","portion":"1 cup","cal":45,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-broth","cat":"Nearly free","name":"Low-sodium broth, warmed","portion":"1 cup","cal":13,"p":null,"c":null,"f":null,"fib":null,"est":true},{"id":"sn-salsa","cat":"Nearly free","name":"Salsa as a veggie dip","portion":"2 tbsp","cal":10,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-eggw","cat":"Protein snacks","name":"Hard-boiled egg whites","portion":"2","cal":35,"p":7,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-pouch","cat":"Protein snacks","name":"Salmon, tuna or chicken pouch","portion":"1 (2.6 oz)","cal":75,"p":15,"c":null,"f":null,"fib":null,"est":true},{"id":"sn-yog","cat":"Protein snacks","name":"Nonfat plain Greek yogurt","portion":"3/4 cup","cal":100,"p":17,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-dip","cat":"Protein snacks","name":"Greek yogurt dip with dill and garlic powder","portion":"1/4 cup","cal":35,"p":6,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-edam","cat":"Protein snacks","name":"Shelled edamame","portion":"1/2 cup","cal":95,"p":9,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-clem","cat":"Fruit","name":"Clementine","portion":"1","cal":35,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-melon","cat":"Fruit","name":"Watermelon","portion":"1 cup","cal":45,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-straw","cat":"Fruit","name":"Strawberries","portion":"1 cup","cal":50,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-orange","cat":"Fruit","name":"Orange","portion":"1 medium","cal":60,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-apple","cat":"Fruit","name":"Apple","portion":"1 medium","cal":95,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-c1","cat":"Best combos","name":"Cucumber, peppers and carrots with Greek yogurt dip","portion":"1/4 cup dip","cal":100,"p":6,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-c2","cat":"Best combos","name":"Salmon pouch with cucumber slices","portion":"1 pouch","cal":90,"p":15,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-c3","cat":"Best combos","name":"Greek yogurt with strawberries","portion":"3/4 cup + 1 cup","cal":150,"p":17,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-c4","cat":"Best combos","name":"Air-popped popcorn","portion":"3 cups","cal":90,"p":null,"c":null,"f":null,"fib":null,"est":false},{"id":"sn-c5","cat":"Best combos","name":"Low-sodium broth with 2 egg whites","portion":"1 mug","cal":50,"p":null,"c":null,"f":null,"fib":null,"est":false}], SBY = Object.fromEntries(SNACKS.map(x => [x.id, x]));
+const snKey = date => `snack|${date}`;
+const snList = date => ((logs[snKey(date)] || {}).l || []).filter(id => SBY[id]);
+let snOpts = null;
+function snackSection(date){
+  if (!snOpts) snOpts = [...new Set(SNACKS.map(x => x.cat))].map(c => `<optgroup label="${c}">` + SNACKS.filter(x => x.cat === c).map(x => `<option value="${x.id}">${esc(x.name)}, ${esc(x.portion)} (${x.est ? "~" : ""}${x.cal} cal)</option>`).join("") + "</optgroup>").join("");
+  const l = snList(date), tot = l.reduce((a, id) => a + SBY[id].cal, 0);
+  return `<h3 class="grp">Smart Snacks</h3><article class="ex meal">
+    ${l.length ? l.map((id, i) => { const x = SBY[id]; return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)"><div style="flex:1"><b>${esc(x.name)}</b><br><small style="color:var(--mute)">${esc(x.portion)} | ${x.est ? "~" : ""}${x.cal} cal${x.p ? ` | P ${x.p} g` : ""}</small></div><button class="btn" data-snrm="${date}|${i}" aria-label="Remove ${esc(x.name)}" style="flex:none;width:44px;min-width:44px;height:44px;padding:0">&times;</button></div>`; }).join("") : `<div class="hint" style="margin:0">No snacks logged.</div>`}
+    <select data-snadd="${date}" aria-label="Add a smart snack"><option value="">+ Add a smart snack</option>${snOpts}</select>
+    <div class="hint">${l.length ? `Snacks today: ${tot} cal. ` : ""}From the plan's Smart Snacks list. Anything over about 100 calories comes out of that night's cookies or a slightly smaller meal.</div></article>`;
+}
 const HMIN = {"CHEST": 34, "BACK": 36, "LEGS + ABS": 40, "SHOULDERS": 31, "ARMS": 35};
 const isHiit = (w, d) => (logs[`${w}|${d}|MODE`] || {}).m === "hiit";
 const pct = () => { const v = +(logs["cfg|pct"] || {}).w; return v >= 30 && v <= 100 ? v : 65; };
@@ -613,6 +631,11 @@ document.addEventListener("click", ev => {
   if (b.dataset.blk) { ui.blk = +b.dataset.blk; ui.week = (ui.blk - 1) * BL + 1; queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
   if (b.dataset.w) { ui.week = +b.dataset.w; if (ui.week > 0) ui.blk = Math.ceil(ui.week / BL); resetTimer(); queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
   if (b.dataset.d) { ui.day = +b.dataset.d; resetTimer(); queueSave(); renderNav(); renderDay(); window.scrollTo(0, 0); return; }
+  if (b.dataset.snrm) {
+    const [date, i] = b.dataset.snrm.split("|"), l = snList(date); l.splice(+i, 1);
+    if (l.length) logs[snKey(date)] = {l}; else delete logs[snKey(date)];
+    queueSave(); renderDay(); return;
+  }
   if (b.dataset.mode) {
     const k = `${ui.week}|${ui.day}|MODE`;
     if (b.dataset.mode === "hiit") logs[k] = {m: "hiit"}; else delete logs[k];
@@ -718,13 +741,14 @@ function buildXlsx(){
   });
   sheets.push(["Warm-up Week", sheetXml(wr, [34, 22, 10, 8, 7, 34])]);
   const mr = [{cells: ["Date", "Meal", "What you ate", "Plan", "Calories", "Protein (g)", "Carbs (g)", "Fat (g)", "Fiber (g)"], s: 2}];
-  const mdates = [...new Set(Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]).map(k => k.split("|")[1]))].sort();
+  const mdates = [...new Set([...Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]), ...Object.keys(logs).filter(k => k.startsWith("snack|") && snList(k.split("|")[1]).length)].map(k => k.split("|")[1]))].sort();
   mdates.forEach(date => {
     const t = new Date(date + "T12:00:00"), tot = {cal: 0, p: 0, c: 0, f: 0, fib: 0};
     mr.push({cells: [`${t.toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric", year: "numeric"})}`, "", "", "", "", "", "", "", ""], s: 3});
     MSLOTS.forEach(([sl, label]) => { const m = MBY[(logs[mealKey(date, sl)] || {}).m]; if (!m) return;
       for (const q in tot) tot[q] += m[q] || 0;
       mr.push({cells: [date, label, m.name, m.plan, m.cal, m.p == null ? "" : m.p, m.c == null ? "" : m.c, m.f == null ? "" : m.f, m.fib == null ? "" : m.fib]}); });
+    snList(date).forEach(id => { const x = SBY[id]; tot.cal += x.cal; tot.p += x.p || 0; mr.push({cells: [date, "Snack", `${x.name}, ${x.portion}`, "Smart Snacks", x.cal, x.p == null ? "" : x.p, "", "", ""]}); });
     const tr = dayTrim(date); if (tr.on && tr.n) { tot.cal -= tr.total; mr.push({cells: [date, "Trim", `Meals trimmed about ${tr.per} cal each for coffee and dessert`, "", -tr.total, "", "", "", ""]}); }
     mr.push({cells: ["", "Day total", "", "", tot.cal, tot.p, tot.c, tot.f, tot.fib], s: 2}, {cells: ["", "", "", "", "", "", "", "", ""]});
   });
@@ -786,6 +810,8 @@ function logsFromCsv(text){
     const g = i => (i >= 0 && r[i] != null ? String(r[i]).trim() : ""), ex = g(cE), wk = g(cW);
     if (!ex) continue;
     if (wk.toLowerCase() === "start") { const v = g(cWt) || g(cT); if (v) { out["start|" + ex] = {w: v}; n++; } continue; }
+    if (wk.toLowerCase() === "snack") { const x = SNACKS.find(q => q.name === g(col("target"))), date = g(cD);
+      if (x && /^\d{4}-\d\d-\d\d$/.test(date)) { const k = snKey(date); out[k] = {l: [...((out[k] || {}).l || []), x.id]}; n++; } continue; }
     if (wk.toLowerCase() === "meal") { const sl = MSLOTS.find(x => x[1] === ex), nm = g(col("target")), m = MEALS.find(x => x.name === nm && (!g(cD + 1) || x.plan === g(cD + 1))) || MEALS.find(x => x.name === nm);
       if (sl && m && /^\d{4}-\d\d-\d\d$/.test(g(cD))) { out[mealKey(g(cD), sl[0])] = {m: m.id}; n++; } continue; }
     if (wk.toLowerCase() === "warm-up") { const di = Object.values(SHORT).indexOf(g(cD)); if (di >= 0 && WU[di].items.some(x => x.name === ex)) { const e = {}; if (g(cWt)) e.w = g(cWt); if (g(cR)) e.r = g(cR); if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN); if (Object.keys(e).length) { out[wuKey(di, ex)] = e; n++; } } continue; }
@@ -805,6 +831,8 @@ function logsFromCsv(text){
   return {logs: out, n};
 }
 document.addEventListener("change", ev => {
+  const sa = ev.target.dataset && ev.target.dataset.snadd;
+  if (sa && ev.target.value) { const k = snKey(sa); logs[k] = {l: [...snList(sa), ev.target.value]}; queueSave(); renderDay(); return; }
   const tk = ev.target.dataset && ev.target.dataset.trim;
   if (tk) { if (ev.target.checked) delete logs[tk]; else logs[tk] = {off: true}; const mt = $("mtot"); if (mt) mt.innerHTML = mealTotals(mt.dataset.date); queueSave(); return; }
   const k = ev.target.dataset && ev.target.dataset.meal; if (!k) return;
@@ -854,6 +882,8 @@ function buildCsv(){
   const SL = Object.fromEntries(MSLOTS);
   Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]).sort().forEach(k => { const [, date, sl] = k.split("|"), m = MBY[logs[k].m];
     rows.push(["Meal", date, m.plan, SL[sl], m.name, "", "", "", "", "", "", "Meal"]); });
+  Object.keys(logs).filter(k => k.startsWith("snack|")).sort().forEach(k => { const date = k.split("|")[1];
+    snList(date).forEach(id => rows.push(["Snack", date, "Smart Snacks", "Snack", SBY[id].name, "", "", "", "", "", "", "Snack"])); });
   WU.forEach((d, di) => d.items.forEach(it => { const e = logs[wuKey(di, it.name)]; if (e && Object.keys(e).length) rows.push(["Warm-up", SHORT[d.day], d.label, it.name, it.target, "", e.w || "", e.r || "", e.d ? "Yes" : "", e.n || "", "", "Warm-up"]); }));
   for (let w = 1, E = exportEnd(); w <= E; w++) {
     if ((logs[`bw|${w}`] || {}).w) rows.push(["Body weight", "", "", `Week ${w}`, "", "", logs[`bw|${w}`].w, "", "", "", "", ""]);
