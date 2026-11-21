@@ -149,6 +149,10 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>Coffee and dessert come from the plan's Coffee and Dessert section: flavored black coffee and Publix chocolate chip cookie portions. They fit inside 2,100 calories by trimming each meal, so when you log them the app takes about a third of their calories off each logged meal (about 130 for a 400-calorie night, 85 for a 250-calorie night). Uncheck "Meals trimmed" on a day you didn't trim.</p>
       <p>The day total compares calories, protein, carbs, fat and fiber with the plan's targets: 2,100 calories, 210 g protein, 210 g carbs, 48 g fat and 35 g+ fiber. A pre-workout snack adds its calories and carbs on top, as the plan does on training days. Numbers come from the plans; values marked ~ are estimated from the plan's protein, carb and fat grams.</p>
     </details>
+    <details><summary>Weekend Zone 2 rides</summary>
+      <p>The Sat and Sun tabs have an optional Zone 2 ride. Pick a TrainerRoad workout from the list, ride it at an easy pace, then mark it done and note your average heart rate or watts.</p>
+      <p>Suggested: Lazy Mountain -2 (45 min) on Saturday and Taku -1 (30 min) on Sunday. Keep rides to 60 minutes or less for now, and drop to one ride if Monday's lifts start dropping. Workout names in TrainerRoad's library can change; if one isn't there, pick a similar Endurance ride.</p>
+    </details>
     <details><summary>Smart Snacks</summary>
       <p>Below the meals on each day is a Smart Snacks section with only the plan's Smart Snacks list: nearly free vegetables and broth, protein snacks, fruit and the best combos. Add as many as you eat; tap &times; to remove one.</p>
       <p>Snacks count toward your 2,100 calories. The plan says vegetables and broth are nearly free, and anything over about 100 calories should come out of that night's cookies or a slightly smaller meal. Values marked ~ are the middle of a range the plan gives.</p>
@@ -279,12 +283,13 @@ function mealSection(t){
 }
 function weekendTabs(wk){
   return [5, 6].map(i => { const date = isoD(weekDate(wk, i)), n = ["bf", "lu", "di"].filter(s => (logs[mealKey(date, s)] || {}).m).length, full = n === 3;
-    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${full ? "Done" : "Meals"}</small></button>`; }).join("");
+    const z = (logs[z2Key(wk, i)] || {}).d;
+    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${full ? "Done" : z ? "Rode" : "Z2+Meals"}</small></button>`; }).join("");
 }
 function renderMealDay(wk){
   const t = weekDate(wk, ui.day);
-  $("day").innerHTML = `<div class="head"><div><p>${ui.day === 5 ? "Saturday" : "Sunday"}, ${dstr(t)} | ${wk ? `Week ${wk}` : "Warm-up week"}</p><h2>Meal Log</h2></div></div>
-  <div class="note">No workout today. Log your meals from the 40-40-20 plans.</div>` + mealSection(t);
+  $("day").innerHTML = `<div class="head"><div><p>${ui.day === 5 ? "Saturday" : "Sunday"}, ${dstr(t)} | ${wk ? `Week ${wk}` : "Warm-up week"}</p><h2>Zone 2 + Meals</h2></div></div>
+  <div class="note">No lifting today. Optional easy Zone 2 ride in TrainerRoad, then log your meals from the 40-40-20 plans.</div>` + z2Card(wk) + mealSection(t);
 }
 const isAssist = n => /^(C\d\. )?Assisted (Pull|Chin|Dips)/.test(n);
 const isSmith = n => /Smith bar/.test(n);
@@ -301,6 +306,20 @@ function snackSection(date){
     ${l.length ? l.map((id, i) => { const x = SBY[id]; return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)"><div style="flex:1"><b>${esc(x.name)}</b><br><small style="color:var(--mute)">${esc(x.portion)} | ${x.est ? "~" : ""}${x.cal} cal${x.p ? ` | P ${x.p} g` : ""}</small></div><button class="btn" data-snrm="${date}|${i}" aria-label="Remove ${esc(x.name)}" style="flex:none;width:44px;min-width:44px;height:44px;padding:0">&times;</button></div>`; }).join("") : `<div class="hint" style="margin:0">No snacks logged.</div>`}
     <select data-snadd="${date}" aria-label="Add a smart snack"><option value="">+ Add a smart snack</option>${snOpts}</select>
     <div class="hint">${l.length ? `Snacks today: ${tot} cal. ` : ""}From the plan's Smart Snacks list. Anything over about 100 calories comes out of that night's cookies or a slightly smaller meal.</div></article>`;
+}
+const Z2 = [
+  ["Recommended", [["taku-1", "Taku -1", "30 min, IF 0.52"], ["lazy-mountain-2", "Lazy Mountain -2", "45 min, IF 0.49"], ["recess-4", "Recess -4", "45 min, IF 0.50"], ["lazy-mountain", "Lazy Mountain", "60 min, IF 0.49"], ["pettit", "Pettit", "60 min, easy"]]],
+  ["Save for later (check length first)", [["baxter", "Baxter", "check version length"], ["james", "James", "check version length"], ["perkins-1", "Perkins -1", "about 2 hours"]]]
+];
+const Z2BY = Object.fromEntries(Z2.flatMap(g => g[1]).map(x => [x[0], x]));
+const z2Key = (w, d) => `${w}|${d}|Z2`;
+function z2Card(w){
+  const k = z2Key(w, ui.day), e = logs[k] || {}, x = Z2BY[e.r], dn = e.d ? " done" : "";
+  const opts = Z2.map(([g, l]) => `<optgroup label="${g}">` + l.map(([id, n, d]) => `<option value="${id}"${e.r === id ? " selected" : ""}>${n} (${d})</option>`).join("") + "</optgroup>").join("");
+  return `<h3 class="grp">Zone 2 Ride (TrainerRoad)</h3><article class="ex meal${dn}" data-k="${k}">
+    <select data-z2="${k}" aria-label="Choose a TrainerRoad ride"><option value="">Pick a ride (optional)</option>${opts}</select>
+    <div class="hint">${x ? `${x[1]}: ${x[2]}. ` : `Suggested: ${ui.day === 5 ? "Lazy Mountain -2 on Saturday" : "Taku -1 on Sunday"}. `}Easy pace; finish fresher than you started. Skip it if Monday's lifts are dropping.</div>
+    <div class="simple"><input class="txt" data-f="n" placeholder="Notes (avg HR, watts)" value="${esc(e.n)}" aria-label="Notes"><button class="chk" data-f="d" aria-label="Mark done">✓</button></div></article>`;
 }
 const HMIN = {"CHEST": 34, "BACK": 36, "LEGS + ABS": 40, "SHOULDERS": 31, "ARMS": 35};
 const isHiit = (w, d) => (logs[`${w}|${d}|MODE`] || {}).m === "hiit";
@@ -768,6 +787,9 @@ function buildXlsx(){
       });
       rows.push({cells: ["", "", "", "", "", "", "", ""]});
     });
+    [5, 6].forEach(d => { const e = logs[z2Key(w, d)]; if (!e) return;
+      rows.push({cells: [`${d === 5 ? "Saturday" : "Sunday"}, ${dstr(weekDate(w, d))}: Zone 2 ride`, "", "", "", "", "", "", ""], s: 3},
+        {cells: [e.r && Z2BY[e.r] ? Z2BY[e.r][1] : "Zone 2 ride", "Zone 2", e.r && Z2BY[e.r] ? Z2BY[e.r][2] : "", "", "", "", e.d ? "Yes" : "", e.n || ""]}, {cells: ["", "", "", "", "", "", "", ""]}); });
     sheets.push([`Week ${w}`, sheetXml(rows, [34, 20, 22, 11, 10, 8, 7, 34])]);
   });
   const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`;
@@ -818,6 +840,9 @@ function logsFromCsv(text){
     if (wk.toLowerCase() === "setting") { if (g(cWt)) { out[/goal.*bottom/i.test(ex) ? "cfg|glo" : /goal/i.test(ex) ? "cfg|ghi" : "cfg|pct"] = {w: g(cWt)}; n++; } continue; }
     if (/^(body weight|extra cardio)$/i.test(wk)) { const ww = parseInt(ex.replace(/\D+/g, ""), 10); if (ww >= 1 && ww <= P.weeks.length && g(cWt)) { out[(/^body/i.test(wk) ? "bw|" : "xc|") + ww] = {w: g(cWt)}; n++; } continue; }
     const w = parseInt(wk, 10); if (!(w >= 1 && w <= P.weeks.length)) continue;
+    if (ex === "Zone 2 Ride") { const d = g(cD) === "Sat" ? 5 : g(cD) === "Sun" ? 6 : -1, z = Object.values(Z2BY).find(q => q[1] === g(col("target"))), e = {};
+      if (z) e.r = z[0]; if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN);
+      if (d > 0 && Object.keys(e).length) { out[z2Key(w, d)] = e; n++; } continue; }
     const hv = g(cV).toLowerCase() === "hiit", SRC = hv ? H : P;
     let di = days.indexOf(g(cD));
     if (ex === "Workout version") { if (di >= 0 && hv) { out[`${w}|${di}|MODE`] = {m: "hiit"}; n++; } continue; }
@@ -831,6 +856,8 @@ function logsFromCsv(text){
   return {logs: out, n};
 }
 document.addEventListener("change", ev => {
+  const zk = ev.target.dataset && ev.target.dataset.z2;
+  if (zk) { const e = logs[zk] || {}; if (ev.target.value) e.r = ev.target.value; else delete e.r; if (Object.keys(e).length) logs[zk] = e; else delete logs[zk]; queueSave(); renderDay(); return; }
   const sa = ev.target.dataset && ev.target.dataset.snadd;
   if (sa && ev.target.value) { const k = snKey(sa); logs[k] = {l: [...snList(sa), ev.target.value]}; queueSave(); renderDay(); return; }
   const tk = ev.target.dataset && ev.target.dataset.trim;
@@ -882,6 +909,8 @@ function buildCsv(){
   const SL = Object.fromEntries(MSLOTS);
   Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]).sort().forEach(k => { const [, date, sl] = k.split("|"), m = MBY[logs[k].m];
     rows.push(["Meal", date, m.plan, SL[sl], m.name, "", "", "", "", "", "", "Meal"]); });
+  P.weeks.slice(0, exportEnd()).forEach((wk, wi) => [5, 6].forEach(d => { const e = logs[z2Key(wi + 1, d)]; if (!e) return;
+    rows.push([wi + 1, d === 5 ? "Sat" : "Sun", "Zone 2", "Zone 2 Ride", e.r && Z2BY[e.r] ? Z2BY[e.r][1] : "", "", "", "", e.d ? "Yes" : "", e.n || "", "", "Zone 2"]); }));
   Object.keys(logs).filter(k => k.startsWith("snack|")).sort().forEach(k => { const date = k.split("|")[1];
     snList(date).forEach(id => rows.push(["Snack", date, "Smart Snacks", "Snack", SBY[id].name, "", "", "", "", "", "", "Snack"])); });
   WU.forEach((d, di) => d.items.forEach(it => { const e = logs[wuKey(di, it.name)]; if (e && Object.keys(e).length) rows.push(["Warm-up", SHORT[d.day], d.label, it.name, it.target, "", e.w || "", e.r || "", e.d ? "Yes" : "", e.n || "", "", "Warm-up"]); }));
