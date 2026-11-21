@@ -150,7 +150,7 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>The day total compares calories, protein, carbs, fat and fiber with the plan's targets: 2,100 calories, 210 g protein, 210 g carbs, 48 g fat and 35 g+ fiber. A pre-workout snack adds its calories and carbs on top, as the plan does on training days. Numbers come from the plans; values marked ~ are estimated from the plan's protein, carb and fat grams.</p>
     </details>
     <details><summary>Weekend Zone 2 rides</summary>
-      <p>The Sat and Sun tabs have an optional Zone 2 ride. Pick a TrainerRoad workout from the list, ride it at an easy pace, then mark it done and note your average heart rate or watts.</p>
+      <p>The Sat and Sun tabs have an optional Zone 2 ride, including Nov 28 and 29 in the warm-up week (which has no meal log). Pick a TrainerRoad workout from the list, ride it at an easy pace, then mark it done and note your average heart rate or watts.</p>
       <p>Suggested: Lazy Mountain -2 (45 min) on Saturday and Taku -1 (30 min) on Sunday. Keep rides to 60 minutes or less for now, and drop to one ride if Monday's lifts start dropping. Workout names in TrainerRoad's library can change; if one isn't there, pick a similar Endurance ride.</p>
     </details>
     <details><summary>Smart Snacks</summary>
@@ -221,7 +221,8 @@ const WU = (() => {
 })();
 const wuKey = (d, name) => `wu|${d}|${name}`;
 function renderWarm(){
-  if (ui.day >= 5) ui.day = 0;
+  if (ui.day >= 5) { $("day").innerHTML = `<div class="head"><div><p>${ui.day === 5 ? "Saturday" : "Sunday"}, ${dstr(weekDate(0, ui.day))} | Warm-up week</p><h2>Zone 2 Ride</h2></div></div>
+    <div class="note">Optional easy Zone 2 ride in TrainerRoad before Week 1 starts Monday. No meal log during the warm-up week.</div>` + z2Card(0); return; }
   const d = WU[ui.day], date = dstr(weekDate(0, ui.day));
   let h = `<div class="head"><div><p>${d.day[0] + d.day.slice(1).toLowerCase()}, ${date} | Warm-up week</p><h2>${esc(d.label)}</h2></div></div>`;
   if (d.off) { $("day").innerHTML = h + `<div class="note">Rest day. Happy Thanksgiving. Shoulders and Arms are combined into a shorter session on Friday.</div>`; return; }
@@ -495,11 +496,11 @@ function renderNav(){
     + Array.from({length: BL}, (_, i) => (ui.blk - 1) * BL + i + 1).map(w => `<button class="chip" data-w="${w}" aria-pressed="${ui.week === w}">Wk ${w}</button>`).join("")
     + (ui.blk < NW / BL ? `<button class="chip" data-blk="${ui.blk + 1}">Block ${ui.blk + 1} &rsaquo;</button>` : "");
   $("tabs").hidden = ui.week <= 0 && ui.week !== -2;
-  if (ui.week === -2 && ui.day > 4) ui.day = 0;
   if (ui.week === -2) $("tabs").innerHTML = WU.map((d, i) => {
     const done = d.items.filter(x => (logs[wuKey(i, x.name)] || {}).d).length, full = !d.off && done === d.items.length;
     return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${SHORT[d.day]}</b><small>${full ? "Done" : d.short}</small></button>`;
-  }).join("");
+  }).join("") + [5, 6].map(i => { const z = (logs[z2Key(0, i)] || {}).d;
+    return `<button class="tab${z ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${z ? "Rode" : "Z2 Ride"}</small></button>`; }).join("");
   else if (ui.week <= 0) { $("tabs").innerHTML = ""; } else $("tabs").innerHTML = P.weeks[ui.week - 1].map((d, i) => {
     const hm = isHiit(ui.week, i), lifts = dayItems(ui.week, i).filter(x => x.kind !== "interval");
     const done = lifts.filter(x => (logs[itemKey(ui.week, i, x, hm)] || {}).d).length;
@@ -757,6 +758,8 @@ function buildXlsx(){
     d.items.forEach(it => { const e = logs[wuKey(di, it.name)] || {}; wr.push({cells: [it.name, it.target, num(e.w), num(e.r), e.d ? "Yes" : "", e.n || ""]}); });
     wr.push({cells: ["", "", "", "", "", ""]});
   });
+  [5, 6].forEach(d => { const e = logs[z2Key(0, d)]; if (!e) return; const z = e.r && Z2BY[e.r];
+    wr.push({cells: [`${d === 5 ? "Saturday" : "Sunday"}, ${dstr(weekDate(0, d))}: Zone 2 ride`, "", "", "", "", ""], s: 3}, {cells: [z ? z[1] : "Zone 2 ride", z ? z[2] : "", "", "", e.d ? "Yes" : "", e.n || ""]}, {cells: ["", "", "", "", "", ""]}); });
   sheets.push(["Warm-up Week", sheetXml(wr, [34, 22, 10, 8, 7, 34])]);
   const mr = [{cells: ["Date", "Meal", "What you ate", "Plan", "Calories", "Protein (g)", "Carbs (g)", "Fat (g)", "Fiber (g)"], s: 2}];
   const mdates = [...new Set([...Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]), ...Object.keys(logs).filter(k => k.startsWith("snack|") && snList(k.split("|")[1]).length)].map(k => k.split("|")[1]))].sort();
@@ -835,6 +838,9 @@ function logsFromCsv(text){
       if (x && /^\d{4}-\d\d-\d\d$/.test(date)) { const k = snKey(date); out[k] = {l: [...((out[k] || {}).l || []), x.id]}; n++; } continue; }
     if (wk.toLowerCase() === "meal") { const sl = MSLOTS.find(x => x[1] === ex), nm = g(col("target")), m = MEALS.find(x => x.name === nm && (!g(cD + 1) || x.plan === g(cD + 1))) || MEALS.find(x => x.name === nm);
       if (sl && m && /^\d{4}-\d\d-\d\d$/.test(g(cD))) { out[mealKey(g(cD), sl[0])] = {m: m.id}; n++; } continue; }
+    if (wk.toLowerCase() === "warm-up" && ex === "Zone 2 Ride") { const d = g(cD) === "Sat" ? 5 : g(cD) === "Sun" ? 6 : -1, z = Object.values(Z2BY).find(q => q[1] === g(col("target"))), e = {};
+      if (z) e.r = z[0]; if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN);
+      if (d > 0 && Object.keys(e).length) { out[z2Key(0, d)] = e; n++; } continue; }
     if (wk.toLowerCase() === "warm-up") { const di = Object.values(SHORT).indexOf(g(cD)); if (di >= 0 && WU[di].items.some(x => x.name === ex)) { const e = {}; if (g(cWt)) e.w = g(cWt); if (g(cR)) e.r = g(cR); if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN); if (Object.keys(e).length) { out[wuKey(di, ex)] = e; n++; } } continue; }
     if (wk.toLowerCase() === "setting") { if (g(cWt)) { out[/goal.*bottom/i.test(ex) ? "cfg|glo" : /goal/i.test(ex) ? "cfg|ghi" : "cfg|pct"] = {w: g(cWt)}; n++; } continue; }
     if (/^(body weight|extra cardio)$/i.test(wk)) { const ww = parseInt(ex.replace(/\D+/g, ""), 10); if (ww >= 1 && ww <= P.weeks.length && g(cWt)) { out[(/^body/i.test(wk) ? "bw|" : "xc|") + ww] = {w: g(cWt)}; n++; } continue; }
@@ -908,6 +914,7 @@ function buildCsv(){
   const SL = Object.fromEntries(MSLOTS);
   Object.keys(logs).filter(k => k.startsWith("meal|") && MBY[(logs[k] || {}).m]).sort().forEach(k => { const [, date, sl] = k.split("|"), m = MBY[logs[k].m];
     rows.push(["Meal", date, m.plan, SL[sl], m.name, "", "", "", "", "", "", "Meal"]); });
+  [5, 6].forEach(d => { const e = logs[z2Key(0, d)]; if (e) rows.push(["Warm-up", d === 5 ? "Sat" : "Sun", "Zone 2", "Zone 2 Ride", e.r && Z2BY[e.r] ? Z2BY[e.r][1] : "", "", "", "", e.d ? "Yes" : "", e.n || "", "", "Zone 2"]); });
   P.weeks.slice(0, exportEnd()).forEach((wk, wi) => [5, 6].forEach(d => { const e = logs[z2Key(wi + 1, d)]; if (!e) return;
     rows.push([wi + 1, d === 5 ? "Sat" : "Sun", "Zone 2", "Zone 2 Ride", e.r && Z2BY[e.r] ? Z2BY[e.r][1] : "", "", "", "", e.d ? "Yes" : "", e.n || "", "", "Zone 2"]); }));
   Object.keys(logs).filter(k => k.startsWith("snack|")).sort().forEach(k => { const date = k.split("|")[1];
