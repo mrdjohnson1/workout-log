@@ -153,6 +153,10 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>The Sat and Sun tabs have an optional Zone 2 ride, including Nov 28 and 29 in the warm-up week (which has no meal log). Pick a TrainerRoad workout from the list, ride it at an easy pace, then mark it done and note your average heart rate or watts.</p>
       <p>Suggested: Lazy Mountain -2 (45 min) on Saturday and Taku -1 (30 min) on Sunday. Keep rides to 60 minutes or less for now, and drop to one ride if Monday's lifts start dropping. Workout names in TrainerRoad's library can change; if one isn't there, pick a similar Endurance ride.</p>
     </details>
+    <details><summary>Pre-workout snack</summary>
+      <p>The Pre-workout slot lists only the plan's Pre-Workout Snacks: the at-home picks, the caffeine-free Huma Chia Energy Gels (Strawberries, Blueberries, Mangoes, Apples and Cinnamon), the road options, and cookies for evening workouts. Every other slot keeps the full meal list.</p>
+      <p>The snack is extra on top of 2,100 on training days, so its calories and carbs are added to that day's targets. Cookies eaten before an evening workout count as that night's cookies instead. Values marked ~ use the middle of the plan's carb and fat ranges; Huma gels are about 100 calories per the plan.</p>
+    </details>
     <details><summary>Smart Snacks</summary>
       <p>Below the meals on each day is a Smart Snacks section with only the plan's Smart Snacks list: nearly free vegetables and broth, protein snacks, fruit and the best combos. Add as many as you eat; tap &times; to remove one.</p>
       <p>Snacks count toward your 2,100 calories. The plan says vegetables and broth are nearly free, and anything over about 100 calories should come out of that night's cookies or a slightly smaller meal. Values marked ~ are the middle of a range the plan gives.</p>
@@ -248,38 +252,41 @@ let mealOpts = null;
 function mealSelect(date, slot, label){
   if (!mealOpts) mealOpts = MPLANS.map(p => `<optgroup label="${p}">` + ["Pre-workout", "Breakfast", "Any meal", "Lunch or dinner", "Coffee", "Dessert"].flatMap(t => MEALS.filter(m => m.plan === p && m.type === t))
     .map(m => `<option value="${m.id}">${esc(m.name)}${m.type === "Pre-workout" ? " (snack)" : m.type === "Breakfast" ? " (breakfast)" : ""}</option>`).join("") + "</optgroup>").join("");
-  const cur = (logs[mealKey(date, slot)] || {}).m || "";
-  return `<select data-meal="${mealKey(date, slot)}" aria-label="${label}"><option value="">Not logged</option>${cur ? mealOpts.replace(`value="${cur}"`, `value="${cur}" selected`) : mealOpts}</select>`;
+  if (!preOpts) preOpts = [...new Set(PREW.map(m => m.grp))].map(g => `<optgroup label="${g}">` + PREW.filter(m => m.grp === g).map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join("") + "</optgroup>").join("");
+  const cur = (logs[mealKey(date, slot)] || {}).m || "", O = slot === "pre" ? preOpts : mealOpts;
+  return `<select data-meal="${mealKey(date, slot)}" aria-label="${label}"><option value="">Not logged</option>${cur ? O.replace(`value="${cur}"`, `value="${cur}" selected`) : O}</select>`;
 }
 const mnum = v => v == null ? "n/a" : fmt(v);
-const mealLine = m => `${m.est ? "~" : ""}${m.cal} cal | P ${mnum(m.p)} g | C ${mnum(m.c)} g | F ${mnum(m.f)} g | Fiber ${mnum(m.fib)} g`;
+const mg = v => v == null ? "n/a" : fmt(v) + " g";
+const mealLine = m => `${m.est ? "~" : ""}${m.cal} cal | P ${mg(m.p)} | C ${mg(m.c)} | F ${mg(m.f)} | Fiber ${mg(m.fib)}`;
 function dayTrim(date){
-  const extra = ["cf", "ds"].reduce((a, s) => a + ((MBY[(logs[mealKey(date, s)] || {}).m] || {}).cal || 0), 0);
+  const extra = ["cf", "ds", "pre"].filter(s => s !== "pre" || (MBY[(logs[mealKey(date, s)] || {}).m] || {}).cookie).reduce((a, s) => a + ((MBY[(logs[mealKey(date, s)] || {}).m] || {}).cal || 0), 0);
   const n = ["bf", "lu", "di"].filter(s => MBY[(logs[mealKey(date, s)] || {}).m]).length, per = Math.round(extra / 3 / 5) * 5;
   return {per, n, total: per * n, on: per > 0 && !(logs[mealKey(date, "trim")] || {}).off};
 }
 function mealTotals(date){
   const picked = [...MSLOTS.map(([s]) => MBY[(logs[mealKey(date, s)] || {}).m]).filter(Boolean), ...snList(date).map(id => SBY[id])];
   if (!picked.length) return `<div class="mtot"><small>Pick your meals to see the day's totals against the plan's targets.</small></div>`;
-  const sum = k => picked.reduce((a, m) => a + (m[k] || 0), 0), snack = MBY[(logs[mealKey(date, "pre")] || {}).m];
+  const sum = k => picked.reduce((a, m) => a + (m[k] || 0), 0), snack0 = MBY[(logs[mealKey(date, "pre")] || {}).m], snack = snack0 && !snack0.cookie ? snack0 : null;
   const tr = dayTrim(date), calSum = sum("cal") - (tr.on ? tr.total : 0);
   const rows = [["Calories", calSum, 2100 + (snack ? snack.cal : 0), ""], ["Protein", sum("p"), 210, " g"], ["Carbs", sum("c"), 210 + (snack ? snack.c || 0 : 0), " g"], ["Fat", sum("f"), 48, " g"], ["Fiber", sum("fib"), 35, " g"]];
   let h = `<div class="mtot"><b>Day total</b>` + rows.map(([n, v, t, u]) => { const pc = Math.min(100, v / t * 100), over = n !== "Fiber" && n !== "Protein" && v > t * 1.05;
     return `<div class="mr"><span>${n}</span><div class="mb"><i class="${over ? "over" : ""}" style="width:${pc.toFixed(0)}%"></i></div><span>${fmt(v)}${u} / ${n === "Fiber" ? t + u + "+" : fmt(t) + u}</span></div>`; }).join("");
-  if (tr.per > 0) h += `<label style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" data-trim="${mealKey(date, "trim")}" ${tr.on ? "checked" : ""} style="width:22px;height:22px"> Meals trimmed about ${tr.per} cal each to fit coffee and dessert${tr.n ? ` (${tr.total} cal off the total)` : ""}</label>`;
+  if (tr.per > 0) h += `<label style="display:flex;gap:10px;align-items:center;margin-top:8px;font-size:14px"><input type="checkbox" data-trim="${mealKey(date, "trim")}" ${tr.on ? "checked" : ""} style="width:22px;height:22px"> Meals trimmed about ${tr.per} cal each to fit coffee and cookies${tr.n ? ` (${tr.total} cal off the total)` : ""}</label>`;
   const notes = [];
   if (snList(date).length) notes.push("Smart snacks count toward 2,100 (calories and the protein the plan lists).");
   if (tr.per > 0) notes.push(`Coffee and dessert fit inside 2,100 when you trim about ${tr.per} calories from each meal, from carbs and fat, using the plan's trim table. Carb and fat totals don't include the trim.`);
   if (picked.some(m => m.plan === "Coffee and Dessert" && m.type === "Dessert")) notes.push("The plan doesn't list protein or fiber for the cookies.");
   if (snList(date).some(id => SBY[id].est)) notes.push("~ snack values are the middle of a range the plan gives.");
-  if (picked.some(m => m.est && !SBY[m.id])) notes.push("~ calories estimated from the plan's protein, carb and fat numbers.");
-  if (snack) notes.push("The plan lists only carbs and fat for snacks, so snack protein and fiber aren't counted. Snack calories and carbs are added to the targets, as the plan does on training days.");
+  if (picked.some(m => m.est && !SBY[m.id])) notes.push("~ values are estimates from the plan's numbers or the middle of a range it gives.");
+  if (snack) notes.push("The plan lists carbs and fat for pre-workout snacks, so their protein and fiber aren't counted. The snack's calories and carbs are added to the targets, since the plan makes it extra on training days.");
+  if (snack0 && snack0.cookie) notes.push("Cookies before an evening workout count as that night's cookies, so they're part of the 2,100 and the meal trim, not extra.");
   return h + (notes.length ? `<small style="display:block;margin-top:6px;color:var(--mute)">${notes.join(" ")}</small>` : "") + `</div>`;
 }
 function mealSection(t){
   const date = isoD(t);
   return `<h3 class="grp" id="meals">Meals, ${dstr(t)}</h3>` + MSLOTS.map(([s, label]) => { const m = MBY[(logs[mealKey(date, s)] || {}).m];
-    return `<article class="ex meal"><div class="r1"><h3>${label}</h3></div>${mealSelect(date, s, label)}<div class="hint" data-ml="${mealKey(date, s)}">${m ? `${esc(m.plan)} plan. ${mealLine(m)}` : "Any meal from the 40-40-20 plans."}</div></article>`; }).join("")
+    return `<article class="ex meal"><div class="r1"><h3>${label}</h3></div>${mealSelect(date, s, label)}<div class="hint" data-ml="${mealKey(date, s)}">${m ? `${esc(m.plan)}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${esc(m.note)}` : ""}` : s === "pre" ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : "Any meal from the 40-40-20 plans."}</div></article>`; }).join("")
     + snackSection(date) + `<div id="mtot" data-date="${date}">${mealTotals(date)}</div>`;
 }
 function weekendTabs(wk){
@@ -321,6 +328,9 @@ function z2Card(w){
     <div class="hint">${x ? `${x[1]}: ${x[2]}. ` : `Suggested: ${ui.day === 5 ? "Lazy Mountain -2 on Saturday" : "Taku -1 on Sunday"}. `}Easy pace; finish fresher than you started. Skip it if Monday's lifts are dropping.</div>
     <div class="simple"><input class="txt" data-f="n" placeholder="Notes (avg HR, watts)" value="${esc(e.n)}" aria-label="Notes"><button class="chk" data-f="d" aria-label="Mark done">✓</button></div></article>`;
 }
+const PREW = [{"id":"pw-ricehoney","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Rice cakes and honey (2 rice cakes + 1 tbsp honey)","cal":128,"p":null,"c":31,"f":0.5,"fib":null,"est":true,"cookie":false,"note":"Fastest option; no prep"},{"id":"pw-ricecakes","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Plain rice cakes (4)","cal":120,"p":null,"c":29,"f":0.5,"fib":null,"est":true,"cookie":false,"note":"Add cinnamon for flavor"},{"id":"pw-toast","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"White toast and jam (1 slice + 1.5 tbsp)","cal":133,"p":null,"c":31,"f":1,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-pretzels","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Unsalted pretzels (1.25 oz)","cal":125,"p":null,"c":29,"f":1,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-graham","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Graham crackers (3 full sheets)","cal":158,"p":null,"c":31.5,"f":3.5,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-fruitsnacks","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Fruit snacks or gummies (about 30 g carbs per label)","cal":120,"p":null,"c":30,"f":0,"fib":null,"est":true,"cookie":false,"note":"Easy to carry to the gym"},{"id":"pw-banana","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Banana (1 medium)","cal":108,"p":null,"c":27,"f":0,"fib":null,"est":true,"cookie":false,"note":"Cheapest option"},{"id":"pw-huma-strawberries","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Strawberries","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-blueberries","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Blueberries","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-mangoes","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Mangoes","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-apples","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Apples and Cinnamon (seasonal)","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-pretzels-road","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"On the road","name":"Pretzels, lowest-sodium bag (about 1.25 oz)","cal":116,"p":null,"c":29,"f":null,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-oat-banana","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"On the road","name":"Quaker Original instant oatmeal + banana (longer sessions)","cal":184,"p":null,"c":46,"f":null,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-cookie-1l","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Evening workouts (counts as that night's cookies)","name":"1 large Publix chocolate chip cookie","cal":160,"p":null,"c":21,"f":8,"fib":null,"est":false,"cookie":true,"note":""},{"id":"pw-cookie-2s","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Evening workouts (counts as that night's cookies)","name":"2 small Publix chocolate chip cookies","cal":180,"p":null,"c":24,"f":9,"fib":null,"est":false,"cookie":true,"note":""}];
+PREW.forEach(m => { MBY[m.id] = m; });
+let preOpts = null;
 const HMIN = {"CHEST": 34, "BACK": 36, "LEGS + ABS": 40, "SHOULDERS": 31, "ARMS": 35};
 const isHiit = (w, d) => (logs[`${w}|${d}|MODE`] || {}).m === "hiit";
 const pct = () => { const v = +(logs["cfg|pct"] || {}).w; return v >= 30 && v <= 100 ? v : 65; };
@@ -770,7 +780,7 @@ function buildXlsx(){
       for (const q in tot) tot[q] += m[q] || 0;
       mr.push({cells: [date, label, m.name, m.plan, m.cal, m.p == null ? "" : m.p, m.c == null ? "" : m.c, m.f == null ? "" : m.f, m.fib == null ? "" : m.fib]}); });
     snList(date).forEach(id => { const x = SBY[id]; tot.cal += x.cal; tot.p += x.p || 0; mr.push({cells: [date, "Snack", `${x.name}, ${x.portion}`, "Smart Snacks", x.cal, x.p == null ? "" : x.p, "", "", ""]}); });
-    const tr = dayTrim(date); if (tr.on && tr.n) { tot.cal -= tr.total; mr.push({cells: [date, "Trim", `Meals trimmed about ${tr.per} cal each for coffee and dessert`, "", -tr.total, "", "", "", ""]}); }
+    const tr = dayTrim(date); if (tr.on && tr.n) { tot.cal -= tr.total; mr.push({cells: [date, "Trim", `Meals trimmed about ${tr.per} cal each for coffee and cookies`, "", -tr.total, "", "", "", ""]}); }
     mr.push({cells: ["", "Day total", "", "", tot.cal, tot.p, tot.c, tot.f, tot.fib], s: 2}, {cells: ["", "", "", "", "", "", "", "", ""]});
   });
   if (!mdates.length) mr.push({cells: ["No meals logged yet.", "", "", "", "", "", "", "", ""]});
@@ -836,7 +846,7 @@ function logsFromCsv(text){
     if (wk.toLowerCase() === "start") { const v = g(cWt) || g(cT); if (v) { out["start|" + ex] = {w: v}; n++; } continue; }
     if (wk.toLowerCase() === "snack") { const x = SNACKS.find(q => q.name === g(col("target"))), date = g(cD);
       if (x && /^\d{4}-\d\d-\d\d$/.test(date)) { const k = snKey(date); out[k] = {l: [...((out[k] || {}).l || []), x.id]}; n++; } continue; }
-    if (wk.toLowerCase() === "meal") { const sl = MSLOTS.find(x => x[1] === ex), nm = g(col("target")), m = MEALS.find(x => x.name === nm && (!g(cD + 1) || x.plan === g(cD + 1))) || MEALS.find(x => x.name === nm);
+    if (wk.toLowerCase() === "meal") { const sl = MSLOTS.find(x => x[1] === ex), nm = g(col("target")), m = [...PREW, ...MEALS].find(x => x.name === nm && (!g(cD + 1) || x.plan === g(cD + 1))) || [...PREW, ...MEALS].find(x => x.name === nm);
       if (sl && m && /^\d{4}-\d\d-\d\d$/.test(g(cD))) { out[mealKey(g(cD), sl[0])] = {m: m.id}; n++; } continue; }
     if (wk.toLowerCase() === "warm-up" && ex === "Zone 2 Ride") { const d = g(cD) === "Sat" ? 5 : g(cD) === "Sun" ? 6 : -1, z = Object.values(Z2BY).find(q => q[1] === g(col("target"))), e = {};
       if (z) e.r = z[0]; if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN);
@@ -870,7 +880,7 @@ document.addEventListener("change", ev => {
   const k = ev.target.dataset && ev.target.dataset.meal; if (!k) return;
   if (ev.target.value) logs[k] = {m: ev.target.value}; else delete logs[k];
   const m = MBY[ev.target.value], hint = document.querySelector(`[data-ml="${k}"]`);
-  if (hint) hint.textContent = m ? `${m.plan} plan. ${mealLine(m)}` : "Any meal from the 40-40-20 plans.";
+  if (hint) hint.textContent = m ? `${m.plan}${m.grp ? " list" : " plan"}. ${mealLine(m)}${m.note ? `. ${m.note}` : ""}` : k.endsWith("|pre") ? "Pick from the plan's Pre-Workout Snacks. Eat it 30 to 60 minutes before training (15 to 30 for a Huma gel)." : "Any meal from the 40-40-20 plans.";
   const mt = $("mtot"); if (mt) mt.innerHTML = mealTotals(mt.dataset.date);
   queueSave(); renderNav();
 });
