@@ -308,8 +308,7 @@ function snackSection(date){
     <div class="hint">${l.length ? `Snacks today: ${tot} cal. ` : ""}From the plan's Smart Snacks list. Anything over about 100 calories comes out of that night's cookies or a slightly smaller meal.</div></article>`;
 }
 const Z2 = [
-  ["Recommended", [["taku-1", "Taku -1", "30 min, IF 0.52"], ["lazy-mountain-2", "Lazy Mountain -2", "45 min, IF 0.49"], ["recess-4", "Recess -4", "45 min, IF 0.50"], ["lazy-mountain", "Lazy Mountain", "60 min, IF 0.49"], ["pettit", "Pettit", "60 min, easy"]]],
-  ["Save for later (check length first)", [["baxter", "Baxter", "check version length"], ["james", "James", "check version length"], ["perkins-1", "Perkins -1", "about 2 hours"]]]
+  ["Recommended", [["taku-1", "Taku -1", "30 min, IF 0.52"], ["lazy-mountain-2", "Lazy Mountain -2", "45 min, IF 0.49"], ["recess-4", "Recess -4", "45 min, IF 0.50"], ["lazy-mountain", "Lazy Mountain", "60 min, IF 0.49"], ["pettit", "Pettit", "60 min, easy"]]]
 ];
 const Z2BY = Object.fromEntries(Z2.flatMap(g => g[1]).map(x => [x[0], x]));
 const z2Key = (w, d) => `${w}|${d}|Z2`;
