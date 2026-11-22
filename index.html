@@ -151,7 +151,7 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
     </details>
     <details><summary>HIIT cardio rotation</summary>
       <p>Your 3 weekly HIIT sessions use one machine per week on a 3-week loop: Week 1 elliptical, Week 2 Stair Master, Week 3 treadmill run, then it starts over.</p>
-      <p>The Stair Master and treadmill follow the same 20-minute pattern as your elliptical workout: 2 minutes recover, 1 minute push, with the settings climbing to a peak at minutes 12 to 15 and then tapering off to the finish. On the treadmill, elliptical resistance becomes speed and elliptical incline becomes treadmill incline. The Stair Master has no incline, only speed levels, so each 2-step rise in elliptical incline becomes 1 level higher, and each push adds levels on top of that.</p>
+      <p>The Stair Master and treadmill follow the same 20-minute pattern as your elliptical workout: 2 minutes recover, 1 minute push, with the settings climbing to a peak at minutes 12 to 15 and then tapering off to the finish. On the treadmill, elliptical resistance becomes speed and elliptical incline becomes treadmill incline. The Stair Master has no incline, only speed levels, so each 2-step rise in elliptical incline becomes 1 level higher, and each push adds levels on top of that. Steps per minute are an average (about 24 at Level 1, plus about 7 per level); your machine may differ a little.</p>
       <p>Each machine steps up a level every time it comes around: Beginner, Beginner-Intermediate, Intermediate, Intermediate-Advanced, then Advanced every time after that. Treadmill speeds show minutes per mile first, with mph in parentheses. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and slow down if your knees or shins complain.</p>
     </details>
     <details><summary>Benchmark test</summary>
@@ -364,7 +364,7 @@ function hiitVariant(w, d, it){
       return `${pace(mph)} pace (${mph} mph), incline ${f1(inc).replace(/\.0$/, "")}%`; })}; }
   if (w % 3 === 2) { const [B, J] = STAIR[L];
     return {...it, name: "HIIT Stair Master (20 min)", level: LVL[L], target: LVL[L], intervals: segPlan((r, e, push) => {
-      const base = B + (e - 5) / 2; return `Level ${push ? base + J + (r >= 12 ? 1 : 0) : base}`; })}; }
+      const base = B + (e - 5) / 2, lv = push ? base + J + (r >= 12 ? 1 : 0) : base; return `Level ${lv} (about ${17 + 7 * lv} steps/min)`; })}; }
   return it;
 }
 const BM = [["pull", "Pull-ups (max, dead hang)", "reps", 10, 10, "20"], ["push", "Push-ups (2 min)", "reps", 50, 52, "80-100"], ["sit", "Sit-ups (2 min)", "reps", 50, 54, "80-100"],
