@@ -149,6 +149,13 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>Coffee and dessert come from the plan's Coffee and Dessert section: flavored black coffee and Publix chocolate chip cookie portions. They fit inside 2,100 calories by trimming each meal, so when you log them the app takes about a third of their calories off each logged meal (about 130 for a 400-calorie night, 85 for a 250-calorie night). Uncheck "Meals trimmed" on a day you didn't trim.</p>
       <p>The day total compares calories, protein, carbs, fat and fiber with the plan's targets: 2,100 calories, 210 g protein, 210 g carbs, 48 g fat and 35 g+ fiber. A pre-workout snack adds its calories and carbs on top, as the plan does on training days. Numbers come from the plans; values marked ~ are estimated from the plan's protein, carb and fat grams.</p>
     </details>
+    <details><summary>HIIT cardio rotation</summary>
+      <p>Your 3 weekly HIIT sessions use one machine per week on a 3-week loop: Week 1 elliptical, Week 2 Stair Master, Week 3 treadmill run, then it starts over (Week 4 elliptical, and so on).</p>
+      <p>The Stair Master and treadmill each step up a level every time they come around: Beginner the 1st time, Beginner-Intermediate the 2nd, Intermediate the 3rd, Intermediate-Advanced the 4th, and Advanced every time after that. The elliptical stays your usual workout. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and drop the speed if your knees or shins complain.</p>
+    </details>
+    <details><summary>Benchmark test</summary>
+      <p>On the Saturday at the end of each 12-week block (first one Feb 20, 2027), a benchmark test replaces the ride: max pull-ups, 2-minute push-ups, 2-minute sit-ups, a max plank and a 1.5-mile run. Each result is compared with the Navy SEAL PST minimum, the Air Force Pararescue (PJ) minimum and competitive scores, and with your last block. Results are on the Body tab.</p>
+    </details>
     <details><summary>Weekend Zone 2 rides</summary>
       <p>The Sat and Sun tabs have an optional Zone 2 ride, including Nov 28 and 29 in the warm-up week (which has no meal log). Pick a TrainerRoad workout from the list, ride it at an easy pace, then mark it done and note your average heart rate or watts.</p>
       <p>Suggested: Lazy Mountain -2 (45 min) on Saturday and Taku -1 (30 min) on Sunday. Keep rides to 60 minutes or less for now, and drop to one ride if Monday's lifts start dropping. Workout names in TrainerRoad's library can change; if one isn't there, pick a similar Endurance ride.</p>
@@ -293,12 +300,12 @@ function mealSection(t){
 function weekendTabs(wk){
   return [5, 6].map(i => { const date = isoD(weekDate(wk, i)), n = ["bf", "lu", "di"].filter(s => (logs[mealKey(date, s)] || {}).m).length, full = n === 3;
     const z = (logs[z2Key(wk, i)] || {}).d;
-    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${full ? "Done" : z ? "Rode" : "Z2+Meals"}</small></button>`; }).join("");
+    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${wk % 12 === 0 && i === 5 ? "Test" : full ? "Done" : z ? "Rode" : "Z2+Meals"}</small></button>`; }).join("");
 }
 function renderMealDay(wk){
   const t = weekDate(wk, ui.day);
   $("day").innerHTML = `<div class="head"><div><p>${ui.day === 5 ? "Saturday" : "Sunday"}, ${dstr(t)} | ${wk ? `Week ${wk}` : "Warm-up week"}</p><h2>Zone 2 + Meals</h2></div></div>
-  <div class="note">No lifting today. Optional easy Zone 2 ride in TrainerRoad, then log your meals from the 40-40-20 plans.</div>` + z2Card(wk) + mealSection(t);
+  <div class="note">No lifting today. Optional easy Zone 2 ride in TrainerRoad, then log your meals from the 40-40-20 plans.</div>` + (wk % 12 === 0 && ui.day === 5 ? benchCard(wk) : z2Card(wk)) + mealSection(t);
 }
 const isAssist = n => /^(C\d\. )?Assisted (Pull|Chin|Dips)/.test(n);
 const isSmith = n => /Smith bar/.test(n);
@@ -332,6 +339,45 @@ function z2Card(w){
 const PREW = [{"id":"pw-ricehoney","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Rice cakes and honey (2 rice cakes + 1 tbsp honey)","cal":128,"p":null,"c":31,"f":0.5,"fib":null,"est":true,"cookie":false,"note":"Fastest option; no prep"},{"id":"pw-ricecakes","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Plain rice cakes (4)","cal":120,"p":null,"c":29,"f":0.5,"fib":null,"est":true,"cookie":false,"note":"Add cinnamon for flavor"},{"id":"pw-toast","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"White toast and jam (1 slice + 1.5 tbsp)","cal":133,"p":null,"c":31,"f":1,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-pretzels","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Unsalted pretzels (1.25 oz)","cal":125,"p":null,"c":29,"f":1,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-graham","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Graham crackers (3 full sheets)","cal":158,"p":null,"c":31.5,"f":3.5,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-fruitsnacks","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Fruit snacks or gummies (about 30 g carbs per label)","cal":120,"p":null,"c":30,"f":0,"fib":null,"est":true,"cookie":false,"note":"Easy to carry to the gym"},{"id":"pw-banana","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"At home","name":"Banana (1 medium)","cal":108,"p":null,"c":27,"f":0,"fib":null,"est":true,"cookie":false,"note":"Cheapest option"},{"id":"pw-huma-strawberries","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Strawberries","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-blueberries","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Blueberries","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-mangoes","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Mangoes","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-huma-apples","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Huma Chia Energy Gel, caffeine-free","name":"Huma Chia Energy Gel, Apples and Cinnamon (seasonal)","cal":100,"p":null,"c":23.5,"f":0.25,"fib":null,"est":true,"cookie":false,"note":"1 gel, 15 to 30 minutes before training"},{"id":"pw-pretzels-road","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"On the road","name":"Pretzels, lowest-sodium bag (about 1.25 oz)","cal":116,"p":null,"c":29,"f":null,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-oat-banana","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"On the road","name":"Quaker Original instant oatmeal + banana (longer sessions)","cal":184,"p":null,"c":46,"f":null,"fib":null,"est":true,"cookie":false,"note":""},{"id":"pw-cookie-1l","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Evening workouts (counts as that night's cookies)","name":"1 large Publix chocolate chip cookie","cal":160,"p":null,"c":21,"f":8,"fib":null,"est":false,"cookie":true,"note":""},{"id":"pw-cookie-2s","plan":"Pre-Workout Snacks","type":"Pre-workout","grp":"Evening workouts (counts as that night's cookies)","name":"2 small Publix chocolate chip cookies","cal":180,"p":null,"c":24,"f":9,"fib":null,"est":false,"cookie":true,"note":""}];
 PREW.forEach(m => { MBY[m.id] = m; });
 let preOpts = null;
+const LVL = ["Beginner", "Beginner-Intermediate", "Intermediate", "Intermediate-Advanced", "Advanced", "Advanced+"];
+function ivPlan(work, rest, base, peak, lab){
+  const out = [{name: "Warm Up", target: "3-5 min, easy"}, {name: "Min 0-2", target: lab(base)}];
+  let m = 2, on = true;
+  while (m < 20) { const len = Math.min(on ? work : rest, 20 - m); out.push({name: `Min ${m}-${m + len}`, target: lab(on ? peak : base) + (on ? " (push)" : " (recover)")}); m += len; on = !on; }
+  out.push({name: "Cool Down", target: "3-5 min, easy"});
+  return out;
+}
+const STAIR = [[1, 2, 4, 6], [1, 1, 5, 7], [1, 1, 6, 9], [2, 1, 6, 9], [2, 1, 7, 11], [2, 1, 8, 12]];
+const TREAD = [[1, 2, "3.5", "5.0"], [1, 2, "3.5", "5.5"], [1, 1, "3.5", "5.5"], [1, 1, "3.5", "6.0"], [2, 1, "3.5", "6.0"], [2, 1, "3.5", "6.5"]];
+function hiitVariant(w, d, it){
+  const k = Math.ceil(w / 3), L = Math.min(4, k - 1);
+  if (w % 3 === 0) { const [a, b, lo, hi] = TREAD[L];
+    return {...it, name: "HIIT Treadmill Run (20 min)", level: LVL[L], target: LVL[L], intervals: ivPlan(a, b, lo, hi, v => `${v} mph, 1% incline`)}; }
+  if (w % 3 === 2) { const [a, b, lo, hi] = STAIR[L];
+    return {...it, name: "HIIT Stair Master (20 min)", level: LVL[L], target: LVL[L], intervals: ivPlan(a, b, lo, hi, v => `Level ${v}`)}; }
+  return it;
+}
+const BM = [["pull", "Pull-ups (max, dead hang)", "reps", 10, 10, "20"], ["push", "Push-ups (2 min)", "reps", 50, 52, "80-100"], ["sit", "Sit-ups (2 min)", "reps", 50, 54, "80-100"],
+  ["plank", "Plank (max hold)", "time", null, null, ""], ["run", "1.5-mile run", "time", "10:30", "10:10", "9:00"]];
+const secs = v => { const m = /^(\d+):(\d{1,2})$/.exec(String(v || "").trim()); return m ? +m[1] * 60 + +m[2] : null; };
+function bmMeets(ev, v, std){
+  if (std == null || v === "" || v == null) return "";
+  if (ev[2] === "time") { const a = secs(v), b = secs(std); return a == null ? "" : a <= b ? " ✓" : " ✗"; }
+  return +v >= +std ? " ✓" : " ✗";
+}
+function benchCard(w){
+  const prev = w - 12 >= 12 ? w - 12 : 0;
+  let h = `<h3 class="grp">Benchmark Test, end of Block ${w / 12}</h3><div class="note">Replaces today's ride. Do the events in this order with 2 to 3 minutes rest between them, and 10 minutes before the run. Strict form only. Log pull-ups as 0 if you can't do one yet, and note the assist weight you'd need. Run the 1.5 miles on a treadmill at 1% incline or a track.</div>`;
+  h += BM.map(ev => { const k = `bm|${w}|${ev[0]}`, v = (logs[k] || {}).w || "", pv = prev ? ((logs[`bm|${prev}|${ev[0]}`] || {}).w || "") : "";
+    const std = ev[3] == null ? "No SEAL or PJ standard; the Marine PFT includes a plank." : `SEAL min ${ev[3]}${bmMeets(ev, v, ev[3])} | PJ min ${ev[4]}${bmMeets(ev, v, ev[4])} | Competitive ${ev[5]}`;
+    return `<article class="ex srow" data-k="${k}"><div><h3>${ev[1]}</h3><small>${std}${pv ? ` | Last block: ${esc(pv)}` : ""}</small></div><input data-f="w" inputmode="${ev[2] === "time" ? "text" : "numeric"}" placeholder="${ev[2] === "time" ? "m:ss" : "reps"}" value="${esc(v)}" aria-label="${ev[1]}"></article>`; }).join("");
+  return h;
+}
+function benchHistory(){
+  const ws = []; for (let w = 12; w <= NW; w += 12) if (BM.some(ev => (logs[`bm|${w}|${ev[0]}`] || {}).w)) ws.push(w);
+  if (!ws.length) return `<h3 class="grp">Benchmark results</h3><div class="note">Your first benchmark test is Saturday of Week 12 (${dstr(weekDate(12, 5))}).</div>`;
+  return `<h3 class="grp">Benchmark results</h3><article class="ex">` + BM.map(ev => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><span>${ev[1]}</span><b>${ws.map(w => `B${w / 12}: ${esc((logs[`bm|${w}|${ev[0]}`] || {}).w || "-")}`).join(" | ")}</b></div>`).join("") + `</article>`;
+}
 const HMIN = {"CHEST": 34, "BACK": 36, "LEGS + ABS": 40, "SHOULDERS": 31, "ARMS": 35};
 const isHiit = (w, d) => (logs[`${w}|${d}|MODE`] || {}).m === "hiit";
 const pct = () => { const v = +(logs["cfg|pct"] || {}).w; return v >= 30 && v <= 100 ? v : 65; };
@@ -441,6 +487,7 @@ function renderBody(){
     if (w % 12 === 1) h += `<h3 class="grp" style="font-size:18px">Block ${Math.ceil(w / 12)}</h3>`;
     h += `<article class="ex srow" data-k="bw|${w}"><div><h3>Week ${w}</h3><small>${dstr(weekDate(w))}${x ? `, extra cardio ${x} min` : ""}</small></div><input data-f="w" inputmode="decimal" placeholder="lb" value="${esc(e.w)}" aria-label="Week ${w} body weight"></article>`;
   }
+  h += benchHistory();
   $("day").innerHTML = h;
 }
 function itemKey(w, d, it, hiit){
@@ -622,8 +669,9 @@ function buildSegs(intervals){
 }
 let tm = {run: false, start: 0, acc: 0, id: 0, lock: null};
 function hiitCard(it, kk, e, dn){
+  { const m = /^(\d+)\|(\d+)\|HIIT$/.exec(String(kk).replace(/&#124;|&amp;/g, "|")); if (m) it = hiitVariant(+m[1], +m[2], it); }
   buildSegs(it.intervals);
-  return `<article class="ex hiit${dn}" data-k="${kk}"><div class="r1"><h3>${esc(it.name)}</h3><span>3 days a week, never on leg day</span></div>
+  return `<article class="ex hiit${dn}" data-k="${kk}"><div class="r1"><h3>${esc(it.name)}</h3><span>${esc(it.level ? it.level + " level" : "3 days a week, never on leg day")}</span></div>
   <div class="simple"><p class="hint" style="margin:0;align-self:center">Warm up 3-5 min, run the intervals below, then cool down 3-5 min.</p><button class="chk" data-f="d" aria-label="Mark done">✓</button></div>
   <ul class="iv">${it.intervals.map(iv => `<li data-n="${esc(iv.name)}"><span>${esc(iv.name)}</span><span>${esc(iv.target)}</span></li>`).join("")}</ul></article>`;
 }
@@ -796,7 +844,8 @@ function buildXlsx(){
         const e = logs[itemKey(w, di, it, hm)] || {};
         let t = null;
         if (it.kind === "lift" && prog[it.name]) t = hm && !isOpener(it) ? hiitTarget(w, it.name) : target(w, it.name);
-        rows.push({cells: [it.name, it.kind === "extra" ? "Extra cardio" : hm ? `HIIT: ${it.block}` : "Lift", it.target || it.pres || "", t ? +fmt(t) : "", num(e.w), num(e.r), e.d ? "Yes" : "", e.n || ""]});
+        const iv = it.kind === "hiit" ? hiitVariant(w, di, it) : it;
+        rows.push({cells: [iv.name, it.kind === "extra" ? "Extra cardio" : hm ? `HIIT: ${it.block}` : "Lift", iv.level ? iv.level + " level" : (it.target || it.pres || ""), t ? +fmt(t) : "", num(e.w), num(e.r), e.d ? "Yes" : "", e.n || ""]});
       });
       rows.push({cells: ["", "", "", "", "", "", "", ""]});
     });
@@ -853,6 +902,7 @@ function logsFromCsv(text){
       if (z) e.r = z[0]; if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN);
       if (d > 0 && Object.keys(e).length) { out[z2Key(0, d)] = e; n++; } continue; }
     if (wk.toLowerCase() === "warm-up") { const di = Object.values(SHORT).indexOf(g(cD)); if (di >= 0 && WU[di].items.some(x => x.name === ex)) { const e = {}; if (g(cWt)) e.w = g(cWt); if (g(cR)) e.r = g(cR); if (["yes", "true", "x", "1", "done"].includes(g(cDn).toLowerCase())) e.d = true; if (g(cN)) e.n = g(cN); if (Object.keys(e).length) { out[wuKey(di, ex)] = e; n++; } } continue; }
+    if (wk.toLowerCase() === "benchmark") { const ww = parseInt(ex.replace(/\D+/g, ""), 10), ev = BM.find(q => q[1] === g(col("target"))); if (ev && ww % 12 === 0 && g(cWt)) { out[`bm|${ww}|${ev[0]}`] = {w: g(cWt)}; n++; } continue; }
     if (wk.toLowerCase() === "setting") { if (g(cWt)) { out[/goal.*bottom/i.test(ex) ? "cfg|glo" : /goal/i.test(ex) ? "cfg|ghi" : "cfg|pct"] = {w: g(cWt)}; n++; } continue; }
     if (/^(body weight|extra cardio)$/i.test(wk)) { const ww = parseInt(ex.replace(/\D+/g, ""), 10); if (ww >= 1 && ww <= P.weeks.length && g(cWt)) { out[(/^body/i.test(wk) ? "bw|" : "xc|") + ww] = {w: g(cWt)}; n++; } continue; }
     const w = parseInt(wk, 10); if (!(w >= 1 && w <= P.weeks.length)) continue;
@@ -931,6 +981,7 @@ function buildCsv(){
   Object.keys(logs).filter(k => k.startsWith("snack|")).sort().forEach(k => { const date = k.split("|")[1];
     snList(date).forEach(id => rows.push(["Snack", date, "Smart Snacks", "Snack", SBY[id].name, "", "", "", "", "", "", "Snack"])); });
   WU.forEach((d, di) => d.items.forEach(it => { const e = logs[wuKey(di, it.name)]; if (e && Object.keys(e).length) rows.push(["Warm-up", SHORT[d.day], d.label, it.name, it.target, "", e.w || "", e.r || "", e.d ? "Yes" : "", e.n || "", "", "Warm-up"]); }));
+  for (let w = 12; w <= NW; w += 12) BM.forEach(ev => { const v = (logs[`bm|${w}|${ev[0]}`] || {}).w; if (v) rows.push(["Benchmark", "", "", `Week ${w}`, ev[1], "", v, "", "", "", "", ""]); });
   for (let w = 1, E = exportEnd(); w <= E; w++) {
     if ((logs[`bw|${w}`] || {}).w) rows.push(["Body weight", "", "", `Week ${w}`, "", "", logs[`bw|${w}`].w, "", "", "", "", ""]);
   }
