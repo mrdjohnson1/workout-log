@@ -151,7 +151,7 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
     </details>
     <details><summary>HIIT cardio rotation</summary>
       <p>Your 3 weekly HIIT sessions use one machine per week on a 3-week loop: Week 1 elliptical, Week 2 Stair Master, Week 3 treadmill run, then it starts over (Week 4 elliptical, and so on).</p>
-      <p>The Stair Master and treadmill each step up a level every time they come around: Beginner the 1st time, Beginner-Intermediate the 2nd, Intermediate the 3rd, Intermediate-Advanced the 4th, and Advanced every time after that. The elliptical stays your usual workout. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and drop the speed if your knees or shins complain.</p>
+      <p>Treadmill speeds show minutes per mile first, with mph in parentheses for the treadmill display: 3.5 mph is a 17:09 pace, 5.0 mph is 12:00, 5.5 mph is 10:55 and 6.0 mph is 10:00. The Stair Master and treadmill each step up a level every time they come around: Beginner the 1st time, Beginner-Intermediate the 2nd, Intermediate the 3rd, Intermediate-Advanced the 4th, and Advanced every time after that. The elliptical stays your usual workout. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and drop the speed if your knees or shins complain.</p>
     </details>
     <details><summary>Benchmark test</summary>
       <p>On the Saturday at the end of each 12-week block (first one Feb 20, 2027), a benchmark test replaces the ride: max pull-ups, 2-minute push-ups, 2-minute sit-ups, a max plank and a 1.5-mile run. Each result is compared with the Navy SEAL PST minimum, the Air Force Pararescue (PJ) minimum and competitive scores, and with your last block. Results are on the Body tab.</p>
@@ -347,12 +347,13 @@ function ivPlan(work, rest, base, peak, lab){
   out.push({name: "Cool Down", target: "3-5 min, easy"});
   return out;
 }
+const pace = v => { const t = Math.round(3600 / +v); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}/mi`; };
 const STAIR = [[1, 2, 4, 6], [1, 1, 5, 7], [1, 1, 6, 9], [2, 1, 6, 9], [2, 1, 7, 11], [2, 1, 8, 12]];
 const TREAD = [[1, 2, "3.5", "5.0"], [1, 2, "3.5", "5.5"], [1, 1, "3.5", "5.5"], [1, 1, "3.5", "6.0"], [2, 1, "3.5", "6.0"], [2, 1, "3.5", "6.5"]];
 function hiitVariant(w, d, it){
   const k = Math.ceil(w / 3), L = Math.min(4, k - 1);
   if (w % 3 === 0) { const [a, b, lo, hi] = TREAD[L];
-    return {...it, name: "HIIT Treadmill Run (20 min)", level: LVL[L], target: LVL[L], intervals: ivPlan(a, b, lo, hi, v => `${v} mph, 1% incline`)}; }
+    return {...it, name: "HIIT Treadmill Run (20 min)", level: LVL[L], target: LVL[L], intervals: ivPlan(a, b, lo, hi, v => `${pace(v)} pace (${v} mph), 1% incline`)}; }
   if (w % 3 === 2) { const [a, b, lo, hi] = STAIR[L];
     return {...it, name: "HIIT Stair Master (20 min)", level: LVL[L], target: LVL[L], intervals: ivPlan(a, b, lo, hi, v => `Level ${v}`)}; }
   return it;
