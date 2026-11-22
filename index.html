@@ -154,6 +154,11 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>The Stair Master and treadmill follow the same 20-minute pattern as your elliptical workout: 2 minutes recover, 1 minute push, with the settings climbing to a peak at minutes 12 to 15 and then tapering off to the finish. On the treadmill, elliptical resistance becomes speed and elliptical incline becomes treadmill incline. The Stair Master has no incline, only speed levels, so each 2-step rise in elliptical incline becomes 1 level higher, and each push adds levels on top of that. Steps per minute are an average (about 24 at Level 1, plus about 7 per level); your machine may differ a little.</p>
       <p>Each machine steps up a level every time it comes around: Beginner, Beginner-Intermediate, Intermediate, Intermediate-Advanced, then Advanced every time after that. Treadmill speeds show minutes per mile first, with mph in parentheses. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and slow down if your knees or shins complain.</p>
     </details>
+    <details><summary>Steady state season (Blocks 3 and 4)</summary>
+      <p>From Monday, May 17, 2027 (Week 25) through Friday, Oct 29, 2027 (end of Week 48), the 3 HIIT sessions become 30-minute steady state sessions for recovery during travel and the USPSA season. The rotation stays the same: elliptical, Stair Master, then a treadmill incline walk, one machine per week.</p>
+      <p>Each machine starts at Beginner the 1st time it comes around, then Beginner-Intermediate, Intermediate, Intermediate-Advanced, and Advanced every time after that. Keep a steady, conversational pace the whole 30 minutes.</p>
+      <p>HIIT returns in Block 5 (Monday, Nov 1, 2027) with the same rotation: Intermediate in Week 49, Intermediate-Advanced in Week 50, then Advanced from Week 51 on. Your elliptical HIIT stays your usual workout.</p>
+    </details>
     <details><summary>Benchmark test</summary>
       <p>On the Saturday at the end of each 12-week block (first one Feb 20, 2027), a benchmark test replaces the ride: max pull-ups, 2-minute push-ups, 2-minute sit-ups, a max plank and a 1.5-mile run. Each result is compared with the Navy SEAL PST minimum, the Air Force Pararescue (PJ) minimum and competitive scores, and with your last block. Results are on the Body tab.</p>
     </details>
@@ -356,8 +361,16 @@ const f1 = v => (Math.round(v * 10) / 10).toFixed(1);
 function segPlan(fn){
   return [{name: "Warm Up", target: "3-5 min, easy"}, ...ESEG.map(([a, b, r, e]) => ({name: `Min ${a}-${b}`, target: fn(r, e, r >= 10) + (r >= 10 ? " (push)" : " (recover)")})), {name: "Cool Down", target: "3-5 min, easy"}];
 }
+const SS_E = [[5, 5], [6, 6], [7, 7], [8, 8], [9, 9]], SS_S = [4, 5, 6, 7, 8], SS_T = [[3.0, 3], [3.2, 4], [3.4, 5], [3.5, 6], [3.5, 8]];
+function ssVariant(w, it){
+  const L = Math.min(4, Math.ceil((w - 24) / 3) - 1), body = t => [{name: "Warm Up", target: "3-5 min, easy"}, {name: "Min 0-30", target: t + " (steady, conversational pace)"}, {name: "Cool Down", target: "3-5 min, easy"}];
+  if (w % 3 === 0) { const [mph, inc] = SS_T[L]; return {...it, name: "Steady State Treadmill Incline Walk (30 min)", level: LVL[L], target: LVL[L], intervals: body(`${pace(f1(mph))} pace (${f1(mph)} mph), incline ${inc}%`)}; }
+  if (w % 3 === 2) { const lv = SS_S[L]; return {...it, name: "Steady State Stair Master (30 min)", level: LVL[L], target: LVL[L], intervals: body(`Level ${lv} (about ${17 + 7 * lv} steps/min)`)}; }
+  const [rr, ii] = SS_E[L]; return {...it, name: "Steady State Elliptical (30 min)", level: LVL[L], target: LVL[L], intervals: body(`Resistance ${rr}, Incline ${ii}`)};
+}
 function hiitVariant(w, d, it){
-  const k = Math.ceil(w / 3), L = Math.min(4, k - 1);
+  if (w >= 25 && w <= 48) return ssVariant(w, it);
+  const k = Math.ceil(w / 3), L = w >= 49 ? (w === 49 ? 2 : w === 50 ? 3 : 4) : Math.min(4, k - 1);
   if (w % 3 === 0) { const [R, Pu, I0, ks] = TREAD[L];
     return {...it, name: "HIIT Treadmill Run (20 min)", level: LVL[L], target: LVL[L], intervals: segPlan((r, e, push) => {
       const mph = f1(push ? Pu + (r - 10) * 0.125 : R + (r - 5) * 0.1), inc = I0 + (e - 5) / 2 * ks;
