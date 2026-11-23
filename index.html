@@ -167,6 +167,7 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
     <details><summary>HIIT cardio rotation</summary>
       <p>Your 3 weekly HIIT sessions use one machine per week on a 3-week loop: Week 1 elliptical, Week 2 Stair Master, Week 3 treadmill run, then it starts over.</p>
       <p>The elliptical has levels too. Advanced is your original 20-minute elliptical routine (Resistance 5 to 14, Incline 5 to 11); the levels below it lower the resistance and incline: Beginner peaks at Resistance 10, Incline 7; Beginner-Intermediate at 11 and 8; Intermediate at 12 and 9; Intermediate-Advanced at 13 and 10.</p>
+      <p>Every elliptical workout has an Elliptical type dropdown. Pick Resistance only when the machine has no incline: the app moves the incline work into resistance, adding 1 resistance level for every 2 incline steps above 5 (the hill push becomes a heavy push), up to 20. Your choice is saved for that day and becomes the default for the next elliptical workout.</p>
       <p>The Stair Master and treadmill follow the same 20-minute pattern as your elliptical workout: 2 minutes recover, 1 minute push, with the settings climbing to a peak at minutes 12 to 15 and then tapering off to the finish. On the treadmill, elliptical resistance becomes speed and elliptical incline becomes treadmill incline. The Stair Master has no incline, only speed levels, so each 2-step rise in elliptical incline becomes 1 level higher, and each push adds levels on top of that. Steps per minute are an average (about 24 at Level 1, plus about 7 per level); your machine may differ a little.</p>
       <p>Each machine steps up a level every time it comes around: Beginner, Beginner-Intermediate, Intermediate, Intermediate-Advanced, then Advanced every time after that. From Week 17 on, every Advanced elliptical, Stair Master and treadmill turn becomes Advanced+. Elliptical Advanced+ follows the same timing: pushes at Resistance 12 to 16 (one is a hill push at Incline 13), two 30-second sprints at Resistance 14 with an all-out stride rate, and recoveries at Resistance 5 to 7. Stair Master Advanced+ is your 20-minute routine with a 3-minute warm-up, 5 one-minute pushes at Levels 12 to 18 with 90-second recoveries, two 30-second all-out sprints at Levels 16 to 20, and a 2-minute cool-down. Treadmill Advanced+ follows the same timing: pushes at 6.5 to 7.5 mph (one is a 5% hill push at 6.0 mph), two 30-second sprints at 8.0 to 8.5 mph, and walking recoveries at 3.5 to 3.8 mph. Start speeding up about 10 seconds before each push, since the belt takes time to change speed. Treadmill speeds show minutes per mile first, with mph in parentheses. Machine levels and speeds are starting points: adjust so the push minutes feel hard and the recover minutes feel easy, and slow down if your knees or shins complain.</p>
     </details>
@@ -519,6 +520,16 @@ function swapSel(w, base, tgt){
   const cur = (logs[swapKey(w, base)] || {}).a || "";
   return `<label style="display:block;margin:4px 0 8px"><small style="color:var(--mute)">${SWAPMSG[base] || "Swap it:"}</small><select data-swap="${swapKey(w, base)}" style="width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:15px Inter,sans-serif;padding:0 8px;margin-top:4px"><option value="">${base}${isPU(base) ? "" : " (as planned)"}${tgt ? ` (${tgt})` : ""}</option>${SWAPS[base].map(([n, reps]) => `<option value="${n}"${cur === n ? " selected" : ""}>${n} (${tgt || reps})</option>`).join("")}</select></label>`;
 }
+const ellMode = (w, d) => (logs[`${w}|${d}|ELL`] || {}).m || (logs["cfg|ell"] || {}).w || "ri";
+function ellResOnly(it){
+  const bump = (v, inc) => Math.min(20, v + Math.max(0, Math.round((inc - 5) / 2)));
+  return {...it, intervals: it.intervals.map(iv => ({name: iv.name.replace("(hill)", "(heavy)"),
+    target: iv.target.replace(/Resistance (\d+)(?:-(\d+)| down to (\d+))?, Incline (\d+)/, (m0, a, b, c, inc) => `Resistance ${bump(+a, +inc)}${b ? "-" + bump(+b, +inc) : c ? " down to " + bump(+c, +inc) : ""}`).replace(", glute focus", ", drive through your heels")}))};
+}
+function ellSel(w, d){
+  const m = ellMode(w, d);
+  return `<label style="display:block;margin:4px 0 8px"><small style="color:var(--mute)">Elliptical type</small><select data-ellm="${w}|${d}" style="width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:15px Inter,sans-serif;padding:0 8px;margin-top:4px"><option value="ri"${m === "ri" ? " selected" : ""}>Resistance and incline</option><option value="r"${m === "r" ? " selected" : ""}>Resistance only (no incline)</option></select></label>`;
+}
 const HMIN = {"CHEST": 34, "BACK": 36, "LEGS + ABS": 43, "SHOULDERS": 31, "ARMS": 35};
 const isHiit = (w, d) => (logs[`${w}|${d}|MODE`] || {}).m === "hiit";
 const pct = () => { const v = +(logs["cfg|pct"] || {}).w; return v >= 30 && v <= 100 ? v : 65; };
@@ -830,9 +841,10 @@ function buildSegs(intervals){
 }
 let tm = {run: false, start: 0, acc: 0, id: 0, lock: null};
 function hiitCard(it, kk, e, dn){
-  { const m = /^(\d+)\|(\d+)\|HIIT$/.exec(String(kk).replace(/&#124;|&amp;/g, "|")); if (m) it = hiitVariant(+m[1], +m[2], it); }
+  let es = ""; { const m = /^(\d+)\|(\d+)\|HIIT$/.exec(String(kk).replace(/&#124;|&amp;/g, "|")); if (m) { it = hiitVariant(+m[1], +m[2], it);
+    if (/Elliptical/.test(it.name)) { es = ellSel(+m[1], +m[2]); if (ellMode(+m[1], +m[2]) === "r") it = ellResOnly(it); } } }
   buildSegs(it.intervals);
-  return `<article class="ex hiit${dn}" data-k="${kk}"><div class="r1"><h3>${esc(it.name)}</h3><span>${esc(it.level ? it.level + " level" : "3 days a week, never on leg day")}</span></div>
+  return `<article class="ex hiit${dn}" data-k="${kk}"><div class="r1"><h3>${esc(it.name)}</h3><span>${esc(it.level ? it.level + " level" : "3 days a week, never on leg day")}</span></div>${es}
   <div class="simple"><p class="hint" style="margin:0;align-self:center">${it.level === "Advanced+" ? "Warm-up and cool-down are built into the 20 minutes. Start the timer at 0:00." : "Warm up 3-5 min, run the intervals below, then cool down 3-5 min."}</p><button class="chk" data-f="d" aria-label="Mark done">✓</button></div>
   <ul class="iv">${it.intervals.map(iv => `<li data-n="${esc(iv.name)}"><span>${esc(iv.name)}</span><span>${esc(iv.target)}</span></li>`).join("")}</ul></article>`;
 }
@@ -1106,6 +1118,8 @@ document.addEventListener("submit", ev => {
   wMsg = {date: df, html: m}; renderDay();
 });
 document.addEventListener("change", ev => {
+  const em = ev.target.dataset && ev.target.dataset.ellm;
+  if (em) { const [w, d] = em.split("|"); logs[`${w}|${d}|ELL`] = {m: ev.target.value}; logs["cfg|ell"] = {w: ev.target.value}; queueSave(); renderDay(); return; }
   const swk = ev.target.dataset && ev.target.dataset.swap;
   if (swk) { if (ev.target.value) logs[swk] = {a: ev.target.value}; else delete logs[swk]; memo.clear(); queueSave(); renderNav(); renderDay(); return; }
   const zk = ev.target.dataset && ev.target.dataset.z2;
