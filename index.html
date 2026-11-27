@@ -144,6 +144,10 @@ textarea{width:100%;height:140px;font:13px/1.4 ui-monospace,monospace;border:1px
       <p>No pec deck machine? The Pec Deck card has a dropdown for Flat DB Bench Chest Fly. No reverse pec deck? The Reverse Pec Deck card (Shoulders day) has a dropdown for Cable Reverse Fly or Bent-Over DB Fly. No Smith Machine? The Smith Machine Standing Calf Raise card (Legs + Abs day) has a dropdown for Seated Calf Raise or Standing DB One-Leg Calf Raise (one dumbbell, each leg). DB Step-Up works on a box, bench or aerobic step; pick a height that puts your knee at about 90 degrees. Plank, Reverse Crunch and Hanging Knee Raise are body weight only, so they have no weight box. Back day rows: Chest-Supported Row every week. Machine High Row on odd weeks and One-Arm DB Row (3 x 8-12 each arm, double progression) on even weeks, in both the Lift and HIIT versions. The Machine High Row card has a dropdown for Seated Cable Row, Incline Bench Cable Pull or Bent-Over Row; each adds 2.5 lb a week, like the high row. Shoulder limiting your range of motion? Both Assisted Dips cards (Chest day and Arms day) have a dropdown for Seated Tricep Pushdown. Each swap keeps the planned sets and reps.</p>
       <p>Swaps are picked per week and work in the warm-up week too. Each one has its own starting weight on the Start screen and moves up 5 lb when you hit the top of the reps on every set. The original exercise holds its target while it's swapped out.</p>
     </details>
+    <details><summary>Holidays (gym closed)</summary>
+      <p>Weekday holidays are days off you can mark done: Thanksgiving 2026 (warm-up week), Christmas Day 2026 (Week 4, Friday), New Year's Day 2027 (Week 5, Friday) and Thanksgiving 2027 (Week 52, Thursday). Christmas Day 2027 and New Year's Day 2028 fall on Saturdays, so those weeks don't change.</p>
+      <p>In a holiday week nothing is skipped. Shoulders and Arms are combined into one session with their full sets and reps (one dead hang and one cardio at the end), and the other workouts keep the week's order on the open weekdays. Lift and HIIT versions both follow this.</p>
+    </details>
     <details><summary>Grip work, dead hangs and day notes</summary>
       <p>Shoulders day includes DB Arnold Press, DB Front Raise and Upright Row (cable or EZ-bar). Arms day ends with grip work: E1/E2 DB Wrist Curls (palms down, then palms up) as a superset, Barbell Plate Pinch (two plates smooth side out, 3 x 30 sec; log the total plate weight and seconds held) and Fireman's Carry (DB or kettlebell, 3 x 40 yards; log the weight and yards). Plate pinch starts in Week 1.</p>
       <p>Every training day ends with a Dead Hang before the cardio: 2 holds, 30 sec in Week 1, adding 5 sec a week (60 sec in Week 7, 90 sec in Week 13) and holding at 120 sec from Week 19 on. Log the seconds held in Reps.</p>
@@ -237,6 +241,19 @@ H.weeks = Array.from({length: 60}, (_, i) => H.weeks[i % 30]);
 const hangSec = w => Math.min(120, 30 + 5 * (w - 1));
 P.weeks = P.weeks.map((wk, i) => wk.map(d => ({...d, items: d.items.map(it => it.name === "Dead Hang" ? {...it, target: `2 x ${hangSec(i + 1)} sec`} : it)})));
 H.weeks = H.weeks.map((wk, i) => wk.map(d => ({...d, items: d.items.map(it => it.name === "Dead Hang" ? {...it, target: `${hangSec(i + 1)} sec`} : it)})));
+const HOLI = [["2026-12-25", "Christmas Day"], ["2027-01-01", "New Year's Day"], ["2027-11-25", "Thanksgiving"], ["2027-12-25", "Christmas Day"], ["2028-01-01", "New Year's Day"]].map(([iso, name]) => { const [y, m, dd] = iso.split("-").map(Number), n = Math.round((new Date(y, m - 1, dd) - new Date(2026, 10, 30)) / 864e5); return {w: Math.floor(n / 7) + 1, d: n % 7, name}; })
+  .filter(h => h.w >= 1 && h.w <= 60 && h.d < 5);
+function holidayWeek(days, hd, name, hiit){
+  const si = days.findIndex(x => x.workout === "SHOULDERS"), ai = days.findIndex(x => x.workout === "ARMS"), sh = days[si], ar = days[ai];
+  const keep = x => x.kind !== "hiit" && x.name !== "Dead Hang", tail = [sh.items.find(x => x.name === "Dead Hang"), sh.items.find(x => x.kind === "hiit")].filter(Boolean);
+  const arm = ar.items.filter(x => x.kind === "lift" && x.name !== "Dead Hang").map(x => hiit ? {...x, block: "Arms " + String(x.block || "").toLowerCase()} : x);
+  const comb = {...sh, workout: "SHOULDERS + ARMS", items: [...sh.items.filter(keep), ...arm, ...tail]};
+  const seq = []; days.forEach((x, i) => { if (i === Math.min(si, ai)) seq.push(comb); else if (i !== si && i !== ai) seq.push(x); });
+  let j = 0; return days.map((x, i) => i === hd ? {day: x.day, workout: "HOLIDAY", holiday: name, off: true, items: []} : {...seq[j++], day: x.day});
+}
+HOLI.forEach(h => { P.weeks[h.w - 1] = holidayWeek(P.weeks[h.w - 1], h.d, h.name, false); H.weeks[h.w - 1] = holidayWeek(H.weeks[h.w - 1], h.d, h.name, true); });
+const offKey = (w, d) => `off|${w}|${d}`;
+const offCard = (k, name) => { const dn = (logs[k] || {}).d; return `<article class="ex${dn ? " done" : ""}" data-k="${k}"><div class="r1"><h3>${esc(name)}: gym closed</h3><span>Day off</span></div><div class="r2"><p class="hint" style="margin:0;flex:1;align-self:center">Tap the check to mark the day done.</p><button class="chk" data-f="d" aria-label="Mark day off done">✓</button></div></article>`; };
 const NW = 60, BL = 12, START = new Date(2026, 10, 30);
 const weekDate = (w, d = 0) => { const t = new Date(START); t.setDate(t.getDate() + (w - 1) * 7 + d); return t; };
 const dstr = t => t.toLocaleDateString(undefined, {month: "short", day: "numeric"});
@@ -258,7 +275,7 @@ const WU = (() => {
     {day: "TUESDAY", label: "Back", short: "Back", items: [...(l => { const i = l.findIndex(x => x.name === "Chest-Supported Row"); if (!l.some(x => x.name === "Seated Cable Row")) l.splice(i + 1, 0, {name: "Seated Cable Row", target: "2 x 10-15", kind: "lift"}); return l; })(lifts("BACK")), stair]},
     {day: "WEDNESDAY", label: "Legs + Abs", short: "Legs+Abs", items: [...lifts("LEGS + ABS"), ...walk]},
     {day: "THURSDAY", label: "Thanksgiving", short: "Off", off: true, items: []},
-    {day: "FRIDAY", label: "Shoulders + Arms", short: "Sh+Arms", items: [...lifts("SHOULDERS", ["Seated DB Shoulder Press", "DB Arnold Press", "DB Lateral Raise", "DB Front Raise", "Upright Row", "Reverse Pec Deck"]), ...lifts("ARMS", ["A1. EZ-Bar Curl", "A2. Rope Pushdown", "B1. Incline DB Curl", "B2. Overhead Cable Triceps Ext", "E1. DB Wrist Curl (pronated)", "E2. DB Wrist Curl (supinated)", "Fireman's Carry (DB or Kettlebell)", "Dead Hang"]), tread]}
+    {day: "FRIDAY", label: "Shoulders + Arms", short: "Sh+Arms", items: [...lifts("SHOULDERS", ["Seated DB Shoulder Press", "DB Lateral Raise", "Reverse Pec Deck"]), ...lifts("ARMS", ["A1. EZ-Bar Curl", "A2. Rope Pushdown", "B1. Incline DB Curl", "B2. Overhead Cable Triceps Ext", "E1. DB Wrist Curl (pronated)", "E2. DB Wrist Curl (supinated)", "Fireman's Carry (DB or Kettlebell)", "Dead Hang"]), tread]}
   ];
 })();
 const wuKey = (d, name) => `wu|${d}|${name}`;
@@ -267,7 +284,7 @@ function renderWarm(){
     <div class="note">Optional easy Zone 2 ride in TrainerRoad before Week 1 starts Monday.</div>` + z2Card(0) + hydrationCard(isoD(weekDate(0, ui.day))); return; }
   const d = WU[ui.day], date = dstr(weekDate(0, ui.day));
   let h = `<div class="head"><div><p>${d.day[0] + d.day.slice(1).toLowerCase()}, ${date} | Warm-up week</p><h2>${esc(d.label)}</h2></div></div>`;
-  if (d.off) { $("day").innerHTML = h + `<div class="note">Rest day. Happy Thanksgiving. Shoulders and Arms are combined into a shorter session on Friday.</div>` + hydrationCard(isoD(weekDate(0, ui.day))); return; }
+  if (d.off) { $("day").innerHTML = h + `<div class="note">Rest day. Happy Thanksgiving. Shoulders and Arms are combined into a shorter session on Friday.</div>` + offCard(offKey(0, ui.day), "Thanksgiving") + hydrationCard(isoD(weekDate(0, ui.day))); return; }
   h += `<div class="note">Warm-up week: same exercises as Week 1, 2 easy sets each with light weights. Focus on form, find your machine settings, and stop well short of hard effort. Nothing here changes your Week 1 targets.</div>`;
   h += d.items.map(it0 => {
     const it = {...swapIt(0, it0), target: it0.target}, k = wuKey(ui.day, it.name), e = logs[k] || {}, dn = e.d ? " done" : "", kk = esc(k), sw = SWAPS[it0.name] ? swapSel(0, it0.name, it0.target) : "";
@@ -335,7 +352,7 @@ function mealSection(t){
 function weekendTabs(wk){
   return [5, 6].map(i => { const date = isoD(weekDate(wk, i)), n = ["bf", "lu", "di"].filter(s => (logs[mealKey(date, s)] || {}).m).length, full = n === 3;
     const z = (logs[z2Key(wk, i)] || {}).d;
-    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${wk % 12 === 0 && i === 5 ? "Test" : full ? "Done" : z ? "Rode" : "Z2+Meals"}</small></button>`; }).join("");
+    return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${wk % 12 === 0 && i === 5 ? "Test" : full ? "Done" : z ? "Rode" : "Z2 Ride"}</small></button>`; }).join("");
 }
 function renderMealDay(wk){
   const t = weekDate(wk, ui.day);
@@ -591,7 +608,7 @@ function cardioPlan(){
   return planCache = {sig, min, why};
 }
 const extraMin = w => cardioPlan().min[w] || 0;
-function extraItem(w, d){ const m = extraMin(w); return m && !P.weeks[w - 1][d].items.some(x => x.kind === "hiit") ? {name: XNAME, kind: "extra", target: `${m} min`} : null; }
+function extraItem(w, d){ const m = extraMin(w); return m && !P.weeks[w - 1][d].off && !P.weeks[w - 1][d].items.some(x => x.kind === "hiit") ? {name: XNAME, kind: "extra", target: `${m} min`} : null; }
 function bwStats(){
   const pts = [];
   for (let w = 1; w <= P.weeks.length; w++) { const v = +(logs[`bw|${w}`] || {}).w; if (v > 0) pts.push([w, v]); }
@@ -672,8 +689,8 @@ function hiitTarget(w, name){
   return Math.max(step, Math.round(m * pct() / 100 / step) * step);
 }
 const SHORT = {MONDAY:"Mon",TUESDAY:"Tue",WEDNESDAY:"Wed",THURSDAY:"Thu",FRIDAY:"Fri"};
-const SHORTW = {"CHEST":"Chest","BACK":"Back","LEGS + ABS":"Legs+Abs","SHOULDERS":"Shldr","ARMS":"Arms"};
-const NICE = w => w === "LEGS + ABS" ? "Legs + Abs" : w[0] + w.slice(1).toLowerCase();
+const SHORTW = {"CHEST":"Chest","BACK":"Back","LEGS + ABS":"Legs+Abs","SHOULDERS":"Shldr","ARMS":"Arms","SHOULDERS + ARMS":"Sh+Arms","HOLIDAY":"Off"};
+const NICE = w => w === "LEGS + ABS" ? "Legs + Abs" : w === "SHOULDERS + ARMS" ? "Shoulders + Arms" : w[0] + w.slice(1).toLowerCase();
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 const fmt = n => (Math.round(n * 10) / 10).toString();
 const topReps = t => { const m = /(\d+)\D*$/.exec(t || ""); return m ? +m[1] : 0; };
@@ -726,14 +743,14 @@ function renderNav(){
     + (ui.blk < NW / BL ? `<button class="chip" data-blk="${ui.blk + 1}">Block ${ui.blk + 1} &rsaquo;</button>` : "");
   $("tabs").hidden = ui.week <= 0 && ui.week !== -2;
   if (ui.week === -2) $("tabs").innerHTML = WU.map((d, i) => {
-    const done = d.items.filter(x => (logs[wuKey(i, swapIt(0, x).name)] || {}).d).length, full = !d.off && done === d.items.length;
+    const done = d.items.filter(x => (logs[wuKey(i, swapIt(0, x).name)] || {}).d).length, full = d.off ? !!(logs[offKey(0, i)] || {}).d : done === d.items.length;
     return `<button class="tab${full ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${SHORT[d.day]}</b><small>${full ? "Done" : d.short}</small></button>`;
   }).join("") + [5, 6].map(i => { const z = (logs[z2Key(0, i)] || {}).d;
     return `<button class="tab${z ? " full" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${i === 5 ? "Sat" : "Sun"}</b><small>${z ? "Rode" : "Z2 Ride"}</small></button>`; }).join("");
   else if (ui.week <= 0) { $("tabs").innerHTML = ""; } else $("tabs").innerHTML = P.weeks[ui.week - 1].map((d, i) => {
     const hm = isHiit(ui.week, i), lifts = dayItems(ui.week, i).filter(x => x.kind !== "interval");
     const done = lifts.filter(x => (logs[itemKey(ui.week, i, x, hm)] || {}).d).length;
-    const full = done === lifts.length;
+    const full = d.off ? !!(logs[offKey(ui.week, i)] || {}).d : done === lifts.length;
     return `<button class="tab${full ? " full" : ""}${hm ? " hm" : ""}" data-d="${i}" aria-pressed="${ui.day === i}"><b>${SHORT[d.day]}</b><small>${full ? "Done" : SHORTW[d.workout]}</small></button>`;
   }).join("") + weekendTabs(ui.week);
   const c = $("weeks").querySelector('[aria-pressed="true"]'); if (c) c.scrollIntoView({inline: "center", block: "nearest"});
@@ -750,6 +767,8 @@ function renderDay0(){
   if (ui.week === -2) return renderWarm();
   if (ui.day >= 5) return renderMealDay(ui.week);
   const w = ui.week, d = P.weeks[w - 1][ui.day];
+  if (d.off) { $("day").innerHTML = `<div class="head"><div><p>${d.day[0] + d.day.slice(1).toLowerCase()}, ${dstr(weekDate(w, ui.day))} | Week ${w}, Block ${Math.ceil(w / BL)}</p><h2>${esc(d.holiday)}</h2></div></div>
+    <div class="note">Gym closed for ${esc(d.holiday)}. Nothing is skipped this week: Shoulders and Arms are combined into one session with their full sets and reps, and the other workouts keep their order on the open weekdays.</div>` + offCard(offKey(w, ui.day), d.holiday) + hydrationCard(isoD(weekDate(w, ui.day))); return; }
   let h = `<div class="head"><div><p>${d.day[0] + d.day.slice(1).toLowerCase()}, ${dstr(weekDate(w, ui.day))} | Week ${w}, Block ${Math.ceil(w / BL)}</p><h2>${esc(NICE(d.workout))}</h2></div><a href="#wh-${isoD(weekDate(w, ui.day))}" style="align-self:flex-end;font-weight:600;color:inherit">Water &darr;</a></div>`;
   const hm = isHiit(w, ui.day);
   if (ui.day === 0) h += `<article class="ex srow" data-k="bw|${w}"><div><h3>Week ${w} weigh-in</h3><small>${dstr(weekDate(w))}, morning, before eating.${extraMin(w) ? ` Extra cardio this week: ${extraMin(w)} min on your 2 non-HIIT days.` : ""}</small></div><input data-f="w" inputmode="decimal" placeholder="lb" value="${esc((logs[`bw|${w}`] || {}).w)}" aria-label="Week ${w} body weight"></article>`;
@@ -1105,6 +1124,7 @@ function logsFromCsv(text){
         else { const d = DR.find(q => q.n === ex); if (d) { a.push({k: "d", p: d.id, f: Math.max(0, d.f.indexOf(g(col("target")))), q: +g(cR) || (d.per12 ? oz : 1), oz, t}); out[k] = {a}; n++; } } }
       continue; }
     if (wk.toLowerCase() === "setting" && (ex === "cfg:h2ogoal" || ex === "cfg:nalimit")) { if (g(cWt)) { out[`cfg|${ex.slice(4)}`] = {w: g(cWt)}; n++; } continue; }
+    if (wk.toLowerCase() === "day off") { if (/^\d+\|\d$/.test(g(cD))) { out[`off|${g(cD)}`] = {d: true}; n++; } continue; }
     if (wk.toLowerCase() === "day note") { if (/^\d+\|\d$/.test(g(cD)) && g(cN)) { out[`dnote|${g(cD)}`] = {n: g(cN)}; n++; } continue; }
     if (wk.toLowerCase() === "benchmark") { const ww = parseInt(ex.replace(/\D+/g, ""), 10), ev = BM.find(q => q[1] === g(col("target"))); if (ev && ww % 12 === 0 && g(cWt)) { out[`bm|${ww}|${ev[0]}`] = {w: g(cWt)}; n++; } continue; }
     if (wk.toLowerCase() === "setting") { if (g(cWt)) { out[/goal.*bottom/i.test(ex) ? "cfg|glo" : /goal/i.test(ex) ? "cfg|ghi" : "cfg|pct"] = {w: g(cWt)}; n++; } continue; }
@@ -1205,6 +1225,7 @@ function buildCsv(){
     if (e.k === "w") rows.push(["Water", date, "", "Water (oz)", "", "", e.oz, "", "", e.t || "", "", ""]);
     else if (DI[e.p]) rows.push(["Drink", date, "", DI[e.p].n, DI[e.p].f[e.f] || "", "", e.oz, qOf(e), "", e.t || "", "", ""]); }));
   ["h2ogoal", "nalimit"].forEach(c => { if ((logs[`cfg|${c}`] || {}).w) rows.push(["Setting", "", "", `cfg:${c}`, "", "", logs[`cfg|${c}`].w, "", "", "", "", ""]); });
+  Object.keys(logs).filter(k => k.startsWith("off|") && (logs[k] || {}).d).sort().forEach(k => rows.push(["Day off", k.slice(4), "", "Day off", "", "", "", "", "Yes", "", "", ""]));
   Object.keys(logs).filter(k => k.startsWith("dnote|") && (logs[k] || {}).n).sort().forEach(k => rows.push(["Day note", k.slice(6), "", "Day notes", "", "", "", "", "", logs[k].n, "", ""]));
   Object.keys(logs).filter(k => k.startsWith("snack|")).sort().forEach(k => { const date = k.split("|")[1];
     snList(date).forEach(id => rows.push(["Snack", date, "Smart Snacks", "Snack", SBY[id].name, "", "", "", "", "", "", "Snack"])); });
